@@ -1,0 +1,5 @@
+backup-funil-leads-*.json
+app/data/
+*.xlsx
+*.pdf
+__pycache__/
