@@ -148,6 +148,9 @@
 #fl-login h1{font-size:20px;margin:0 0 6px}#fl-login p{color:var(--muted,#5f6b7a);font-size:14px;margin:0 0 18px}
 #fl-login button{background:#0f6e66;color:#fff;border:0;border-radius:8px;padding:11px 18px;font-weight:700;font-size:14px;cursor:pointer}
 #fl-login button.sec{background:transparent;color:#0f6e66;border:1px solid #0f6e66;margin-top:10px}
+#fl-login input{width:100%;box-sizing:border-box;border:1px solid var(--line,#cfd5dc);border-radius:8px;padding:10px 12px;font:inherit;font-size:14px;margin:0 0 10px;background:#fff;color:inherit}
+#fl-login form{margin:0;text-align:left}#fl-login form button{width:100%}
+#fl-login .ou{display:flex;align-items:center;gap:10px;color:var(--muted,#5f6b7a);font-size:12px;margin:16px 0}#fl-login .ou:before,#fl-login .ou:after{content:"";flex:1;border-top:1px solid var(--line,#e2e6eb)}
 #fl-sair{border:1px solid var(--line,#e2e6eb);background:transparent;border-radius:8px;padding:6px 10px;cursor:pointer;color:inherit;font:inherit;font-size:13px}
 .fl-alerta{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#16202c;color:#fff;padding:12px 18px;border-radius:10px;z-index:120;font-weight:600;max-width:90vw}`;
     document.head.appendChild(st);
@@ -163,10 +166,58 @@
     el.innerHTML = `<div class="bx"><h1>${titulo}</h1><p>${html}</p>${botoes || ""}</div>`;
     return el;
   }
+  const MSG = {
+    "auth/invalid-credential": "E-mail ou senha incorretos.",
+    "auth/wrong-password": "E-mail ou senha incorretos.",
+    "auth/user-not-found": "E-mail ou senha incorretos.",
+    "auth/invalid-email": "E-mail inválido.",
+    "auth/too-many-requests": "Muitas tentativas. Espere alguns minutos e tente de novo.",
+    "auth/operation-not-allowed": "Login com e-mail e senha não está ativado no Firebase.",
+    "auth/popup-closed-by-user": "A janela do Google foi fechada antes de terminar.",
+    "auth/unauthorized-domain": "Este endereço não está autorizado no Firebase (Domínios autorizados).",
+  };
+  const erroLogin = (e) => alertaLeve(MSG[e && e.code] || "Não foi possível entrar (" + ((e && e.code) || "erro") + ").");
   function telaLogin() {
-    const el = telaAviso("Funil de Leads da Comunicação", "Entre com a sua conta Google da clínica.", `<button id="fl-entrar">Entrar com Google</button>`);
-    el.querySelector("#fl-entrar").onclick = () => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())
-      .catch((e) => alertaLeve("Não foi possível entrar (" + (e.code || "erro") + ")."));
+    const el = telaAviso("Funil de Leads da Comunicação", "Entre com o e-mail, o seu nome e a senha que a administração criou para você.",
+      `<form id="fl-form" autocomplete="on">
+        <input id="fl-email" type="email" placeholder="E-mail" autocomplete="username" required>
+        <input id="fl-nome-login" list="fl-nomes-l" placeholder="Nome" autocomplete="off" required>
+        <datalist id="fl-nomes-l"><option value="Vinícius"><option value="Samara"><option value="Bernardo"><option value="Juliana"></datalist>
+        <input id="fl-senha" type="password" placeholder="Senha" autocomplete="current-password" required>
+        <button type="submit">Entrar</button>
+      </form>
+      <div class="ou">ou</div>
+      <button class="sec" id="fl-entrar" type="button">Entrar com Google</button>`);
+    el.querySelector("#fl-form").onsubmit = (ev) => {
+      ev.preventDefault();
+      const em = el.querySelector("#fl-email").value.trim(), se = el.querySelector("#fl-senha").value;
+      nomeDigitado = el.querySelector("#fl-nome-login").value.trim();
+      // Sessão só nesta aba: ao fechar o navegador, precisa entrar de novo (computador compartilhado)
+      auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
+        .then(() => auth.signInWithEmailAndPassword(em, se))
+        .catch((e) => { nomeDigitado = null; erroLogin(e); });
+    };
+    el.querySelector("#fl-entrar").onclick = () => auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())).catch(erroLogin);
+  }
+  let nomeDigitado = null;
+  const semAcento = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  const primeiro = (x) => semAcento(x).split(/\s+/)[0];
+  // Primeiro acesso de um usuário de e-mail e senha: pergunta o nome (é ele que liga o login às metas)
+  function pedirNome(u) {
+    return new Promise((ok) => {
+      const sug = String(u.email || "").split("@")[0].split(/[._-]/)[0];
+      const ini = sug ? sug.charAt(0).toUpperCase() + sug.slice(1) : "";
+      const el = telaAviso("Primeiro acesso", "Como você se chama? Use o mesmo nome da equipe (ex.: Vinícius, Samara, Bernardo). Ele aparece nos seus lançamentos e nas metas.",
+        `<form id="fl-nome-f"><input id="fl-nome" list="fl-nomes" value="${ini.replace(/["<>&]/g, "")}" required>
+        <datalist id="fl-nomes"><option value="Vinícius"><option value="Samara"><option value="Bernardo"><option value="Juliana"></datalist>
+        <button type="submit">Continuar</button></form>`);
+      el.querySelector("#fl-nome-f").onsubmit = async (ev) => {
+        ev.preventDefault();
+        const n = el.querySelector("#fl-nome").value.trim(); if (!n) return;
+        try { await u.updateProfile({ displayName: n }); } catch (e) {}
+        ok(n);
+      };
+    });
   }
   function botaoSair() {
     if (document.getElementById("fl-sair")) return;
@@ -179,12 +230,24 @@
     estilo();
     auth.onAuthStateChanged(async (u) => {
       if (!u) { telaLogin(); return; }
+      if (nomeDigitado !== null) {
+        const n = nomeDigitado; nomeDigitado = null;
+        if (!u.displayName) {
+          // Primeiro acesso: o nome digitado fica registrado para este usuário
+          try { await u.updateProfile({ displayName: n }); } catch (e) {}
+        } else if (primeiro(u.displayName) !== primeiro(n)) {
+          await auth.signOut();
+          alertaLeve("O nome não confere com este usuário. Confira e tente de novo.");
+          return;
+        }
+      }
+      if (!auth.currentUser.displayName) await pedirNome(u);
       telaAviso("Entrando…", "Conferindo o seu acesso.");
-      try { await fs.doc("perfis/" + u.uid).set({ nome: u.displayName || "", email: u.email || "", visto: new Date().toISOString() }, { merge: true }); } catch (e) {}
+      try { await fs.doc("perfis/" + u.uid).set({ nome: auth.currentUser.displayName || "", email: u.email || "", visto: new Date().toISOString() }, { merge: true }); } catch (e) {}
       try { await fs.doc("cfg/acesso").get(); }
       catch (e) {
-        const el = telaAviso("Acesso não liberado", `O e-mail <b>${(u.email || "").replace(/[<>&]/g, "")}</b> ainda não tem acesso. Peça à administradora para incluí-lo nas regras do sistema.`,
-          `<button class="sec" id="fl-outra">Entrar com outra conta</button>`);
+        const el = telaAviso("Acesso não liberado", `O usuário <b>${(u.email || "").replace(/[<>&]/g, "")}</b> ainda não tem acesso. Peça à administração para incluí-lo nas regras do sistema.`,
+          `<button class="sec" id="fl-outra">Entrar com outro usuário</button>`);
         el.querySelector("#fl-outra").onclick = () => auth.signOut();
         return;
       }
