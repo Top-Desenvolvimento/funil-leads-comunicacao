@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -280,6 +281,8 @@ function assinarMes(k){if(!S.db||!isLive(k)||unsub[k])return;
 function atualizarAdm(){S.isAdm=S.isOwner||!!(window.__ehAdm&&window.__ehAdm())||(!!S.me&&(S.cfg.gestores||[]).includes(S.me));
   document.getElementById("tab-adm").hidden=!S.isAdm;document.getElementById("tab-funil").hidden=!S.isAdm;if(S.isAdm)assinarAdm();renderWho()}
 function assinarAdm(){if(!S.db||unsub.adm)return;
+  if(S.isOwner)S.db.doc("segredo/robo").get().then(d=>{S.roboTemChave=!!d.exists;agendarRender()},()=>{});
+  unsub.robo=S.db.doc("robo/estado").onSnapshot(d=>{S.robo=(d.exists&&d.data())||null;agendarRender()},()=>{});
   unsub.adm=S.db.collection("adm").onSnapshot(snap=>{S.adm={};for(const d of snap.docs)if(d.exists)S.adm[d.id]=d.data();S.admReady=true;agendarSync();agendarRender()},
     e=>{S.admReady=true;agendarRender()})}
 let syncT=null;function agendarSync(){if(!S.isAdm||!S.db)return;clearTimeout(syncT);syncT=setTimeout(syncPub,1500)}
@@ -333,6 +336,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     <div><div class="small muted">${NUM.format(ls.length)} leads neste mês${nRisc?` · ${NUM.format(nRisc)} transferidos para meses seguintes`:""}</div></div></div>
     ${live?"":`<span class="banner info">Mês arquivado: dados importados da planilha, somente leitura.</span>`}
   </div><div style="margin-top:12px">${barraExport(mes)}</div></div>`;
+  if(S.isAdm)h+=vRobo();
   if(live&&S.isOwner&&mes==="2026-11"&&S.migr===false)h+=`<div class="banner warn"><b>${ls.length?"A importação de novembro não terminou.":"Novembro ainda está vazio."}</b> Importe os 304 leads de novembro da planilha antes de a equipe começar. <button class="btn pri" data-a="importar" id="btn-imp">Importar novembro</button><span id="imp-prog"></span></div>`;
   if(live&&!S.db)h+=`<div class="banner bad">Entre na sua conta para lançar e editar leads.</div>`;
   else if(live&&!podeEscrever())h+=`<div class="banner warn">Seu acesso é só de leitura. Peça à administradora para te convidar como Editor.</div>`;
@@ -782,6 +786,7 @@ function vAcesso(){const g=S.cfg.gestores||[];
   else h+=`<div class="chips">${S.pessoas.filter(p=>p.id!==S.me).map(p=>`<button class="chip" data-a="gestor" data-k="${esc(p.id)}" aria-pressed="${g.includes(p.id)}">${esc(p.name||"Sem nome")}${g.includes(p.id)?" · gestor":""}</button>`).join("")}</div>`;
   if(g.length)h+=`<div class="small" style="margin-top:10px">Com acesso hoje: ${g.map(id=>esc(nome(id))).join(", ")}</div>`;
   h+=`<div class="row" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line)"><button class="btn" data-a="backup">Baixar backup completo (JSON)</button>${window.__restaurar?`<label class="btn" for="rest-file" style="cursor:pointer">Restaurar backup…</label><input type="file" id="rest-file" accept=".json" data-a="restaurar" hidden>`:""}<span class="small muted">Todos os leads, histórico, valores, metas e configurações, para levar ao sistema independente.</span></div>`;
+  h+=vChaveRobo();
   return h+`</div>`}
 function numBR(s){s=String(s).trim().replace(/[R$\s]/g,"");if(!s)return null;if(s.includes(","))s=s.replace(/\./g,"").replace(",",".");const v=Number(s);return isFinite(v)&&v>=0?Math.round(v*100)/100:NaN}
 async function salvarAdm(k,mut){const ref=S.db.doc("adm/"+k);
@@ -816,6 +821,10 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="importar")importarNovembro();
   else if(a==="admmodo"){S.adm_mode=t.dataset.v;render()}
   else if(a==="finmodo"){S.fin_mode=t.dataset.v;render()}
+  else if(a==="roborun"){rodarRobo()}
+  else if(a==="robotok"){const i=document.getElementById("robo-tok");const v=(i&&i.value||"").trim();
+    if(!v){toast("Cole a chave antes de salvar.");return}
+    S.db.doc("segredo/robo").set({token:v,em:new Date().toISOString(),por:S.me||""}).then(()=>{S.roboTemChave=true;i.value="";toast("Chave salva.");render()}).catch(tratarErro)}
   else if(a==="semvalor"){S.adm_soSemValor=!S.adm_soSemValor;render()}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.sel){S.sel=null;document.getElementById("drawer-root").innerHTML=""}
@@ -827,6 +836,7 @@ document.addEventListener("input",e=>{const t=e.target;const a=t.dataset&&t.data
   else if(a==="ntel"||t.id==="n-data"){if(a==="ntel")S.novoTel=t.value;clearTimeout(buscaT);buscaT=setTimeout(()=>{const el=document.getElementById("n-dup");if(el)el.innerHTML=dupPreview()},250)}
   else if(a==="dset"&&S.sel){S.sel.draft[t.dataset.k]=t.value;if(t.dataset.k==="agendamento"||t.dataset.k==="status")renderDrawer()}});
 document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&&t.dataset.a;
+  if(a==="robosim"){S.robo_simular=!!t.checked;return}
   if(a==="restaurar"&&t.files&&t.files[0]&&window.__restaurar){window.__restaurar(t.files[0]);t.value="";return}
   if(a==="mes"){S.mes=t.value;S.f.lim=150;S.ff.resp="";S.f.resp="";assinarMes(S.mes);render()}
   else if(a==="f"&&t.dataset.k!=="busca"){S.f[t.dataset.k]=t.value;S.f.lim=150;render()}
@@ -844,6 +854,70 @@ document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&
   else if(a==="valor"){const v=numBR(t.value);if(Number.isNaN(v)){toast("Valor inválido. Use só números, ex.: 3500,00");return}
     try{await salvarAdm(S.mes,n=>{if(v==null)delete n.valores[t.dataset.k];else n.valores[t.dataset.k]=v});toast("Valor salvo.")}catch(err){tratarErro(err)}}
 });
+/* ---- Botão do robô de presenças (dispara o GitHub Actions) ---- */
+const ROBO_REPO="Top-Desenvolvimento/funil-leads-comunicacao",ROBO_WF="conferir-presencas.yml";
+const ROBO_UN={caxias:"Caxias",bento:"Bento",farroupilha:"Farroupilha",flores:"Flores",veranopolis:"Veranópolis",encantado:"Encantado",soledade:"Soledade"};
+function fmtHora(iso){if(!iso)return "";const d=new Date(iso);return d.toLocaleDateString("pt-BR")+" às "+d.toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}
+function vRobo(){const r=S.robo||{},est=r.estado||"",simul=S.robo_simular!==false;
+  const ocupado=est==="solicitado"||est==="rodando";
+  const velho=ocupado&&r.em&&(Date.now()-new Date(r.em).getTime()>30*60*1000);
+  let st="";
+  if(est==="solicitado"&&!velho)st=`<span class="tag info">Pedido enviado ${esc(fmtHora(r.em))} · o robô começa em até 1 minuto</span>`;
+  else if(est==="rodando"&&!velho)st=`<span class="tag info">Conferindo agora… (começou ${esc(fmtHora(r.inicio||r.em))})</span>`;
+  else if(velho)st=`<span class="tag warn">O último pedido não terminou. Veja a aba Actions do GitHub.</span>`;
+  let tab="";
+  if(r.resumo&&(est==="concluido"||est==="erro")){
+    const linhas=Object.keys(ROBO_UN).filter(k=>r.resumo[k]).map(k=>{const x=r.resumo[k];
+      return `<tr><td>${esc(ROBO_UN[k])}</td>${x.falha?`<td colspan="3" class="small" style="color:var(--bad,#b42318)">Não conferida: ${esc(x.falha)}</td>`:`<td class="n">${NUM.format(x.pendentes||0)}</td><td class="n"><b>${NUM.format(x.presencas||0)}</b></td><td class="n">${NUM.format(x.pulados||0)}</td>`}</tr>`}).join("");
+    tab=`<div class="small muted" style="margin:10px 0 6px">Última conferência: <b>${esc(fmtHora(r.fim))}</b>${r.simular?" · <b>simulação</b> (nada foi gravado)":""}${r.por?" · pedida por "+esc(nome(r.por)):""}</div>
+     <div class="tablewrap"><table><thead><tr><th>Unidade</th><th class="n">Agendados sem status</th><th class="n">${r.simular?"Teriam presença":"Presenças gravadas"}</th><th class="n">Pulados</th></tr></thead><tbody>${linhas}</tbody></table></div>`}
+  return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
+    <div><h2 style="margin:0">Conferir presenças no sistema da clínica</h2>
+    <div class="small muted">O robô procura as avaliações concluídas nas 7 unidades e marca Presença nos agendados sem status.</div></div>
+    <div class="row" style="gap:10px;align-items:center"><label class="small" style="display:flex;gap:6px;align-items:center"><input type="checkbox" data-a="robosim"${simul?" checked":""}> Só simular</label>
+    <button class="btn pri" data-a="roborun"${ocupado&&!velho?" disabled":""}>${ocupado&&!velho?"Conferindo…":"Rodar conferência"}</button></div></div>
+    ${st?`<div style="margin-top:8px">${st}</div>`:""}${tab}</div>`}
+async function rodarRobo(){if(!S.isAdm)return;const simular=S.robo_simular!==false;
+  let tok="";try{const d=await S.db.doc("segredo/robo").get();tok=(d.exists&&d.data().token)||""}catch(e){}
+  if(!tok){toast(S.isOwner?"Cadastre a chave do GitHub no Administrativo (fim da página).":"A chave do GitHub ainda não foi cadastrada. Avise a Nicele.");return}
+  const b=document.querySelector('[data-a="roborun"]');if(b)b.disabled=true;
+  try{const r=await fetch(`https://api.github.com/repos/${ROBO_REPO}/actions/workflows/${ROBO_WF}/dispatches`,{method:"POST",
+      headers:{"Accept":"application/vnd.github+json","Authorization":"Bearer "+tok,"X-GitHub-Api-Version":"2022-11-28"},
+      body:JSON.stringify({ref:"main",inputs:{simular:simular?"true":"false",unidades:""}})});
+    if(r.status!==204){toast(r.status===401?"A chave do GitHub está errada ou venceu.":r.status===404?"O GitHub não achou o robô (confira a chave e o arquivo do workflow).":"O GitHub recusou o pedido ("+r.status+").");if(b)b.disabled=false;return}
+    const est={estado:"solicitado",em:new Date().toISOString(),por:S.me||"",simular};
+    S.robo={...(S.robo||{}),...est};try{await S.db.doc("robo/estado").set({...(S.robo||{}),...est})}catch(e){}
+    toast(simular?"Simulação pedida. O resultado aparece aqui em 1 a 3 minutos.":"Conferência pedida. O resultado aparece aqui em 1 a 3 minutos.");render()}
+  catch(e){toast("Não foi possível falar com o GitHub. Confira a internet.");if(b)b.disabled=false}}
+function vChaveRobo(){return `<div class="row" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--line);gap:8px;align-items:flex-end;flex-wrap:wrap">
+  <label class="f" for="robo-tok" style="flex:1;min-width:240px">Chave do GitHub para o botão do robô<input id="robo-tok" type="password" autocomplete="off" placeholder="${S.roboTemChave?"Chave cadastrada · cole outra para trocar":"Cole aqui a chave (github_pat_...)"}"></label>
+  <button class="btn" data-a="robotok">Salvar chave</button></div>
+  <div class="small muted" style="margin-top:4px">Fica guardada no banco e só a gerência consegue ler. Nunca é mostrada na tela.</div>`}
+
+/* ---- Robô de conferência de presenças (usado pelo Claude pelo navegador; só gerência) ---- */
+window.__robo={
+  pendentes(ate){ate=ate||hoje;if(!S.isAdm)throw new Error("Só a gerência pode usar o robô.");
+    const out=[];for(const k of MESES)if(isLive(k))for(const l of ativos(k))
+      if(l.situacao==="Agendado"&&!l.status&&l.agendamento&&l.agendamento<=ate)
+        out.push({mes:k,id:l.id,cod:l.cod,contato:l.contato,agendamento:l.agendamento,cidade:l.cidade,interesse:l.interesse,agPor:agendadorNome(l)||""});
+    return out.sort((a,b)=>a.agendamento<b.agendamento?-1:1)},
+  async aplicar(lista){if(!S.isAdm)throw new Error("Só a gerência pode usar o robô.");
+    const ok=["Presença","Faltoso","Cancelado"],res={gravados:0,pulados:[]};
+    for(const it of lista||[]){
+      if(!ok.includes(it.status)){res.pulados.push({id:it.id,motivo:"status inválido"});continue}
+      try{const ref=S.db.doc("m/"+it.mes+"/leads/"+it.id);const snap=await ref.get();
+        if(!snap.exists){res.pulados.push({id:it.id,motivo:"lead não encontrado"});continue}
+        const x=snap.data()||{};
+        if(x.status){res.pulados.push({id:it.id,motivo:"já tinha status ("+x.status+")"});continue}
+        if(x.situacao!=="Agendado"){res.pulados.push({id:it.id,motivo:"situação mudou ("+x.situacao+")"});continue}
+        const t=new Date().toISOString();
+        const n={u:S.me||"",t,de:"Agendado",para:"Agendado",st:it.status,txt:"Robô de conferência: conferido no sistema da clínica"+(it.obs?" · "+String(it.obs).slice(0,200):"")};
+        await serial(it.mes+"/"+it.id,()=>ref.update({status:it.status,notas:[...(Array.isArray(x.notas)?x.notas:[]),n].slice(-60),atualizado:t,atualizadoPor:S.me||"",conferidoRobo:t}));
+        res.gravados++}
+      catch(e){res.pulados.push({id:it.id,motivo:"erro "+((e&&e.code)||e)})}}
+    toast("Robô: "+res.gravados+" status gravados"+(res.pulados.length?", "+res.pulados.length+" pulados":"")+".");return res}
+};
+
 window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
