@@ -1,0 +1,46 @@
+rules_version = '2';
+// Regras de acesso do Funil de Leads. Cole este arquivo inteiro em:
+// Console do Firebase → Firestore Database → Regras → Publicar.
+// Sempre que alguém entrar ou sair da equipe, edite as listas abaixo e publique de novo.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1) E-mail da dona do sistema (o mesmo do config.js)
+    function dona() {
+      return request.auth != null && request.auth.token.email == "COLE-AQUI-O-SEU-EMAIL@gmail.com";
+    }
+
+    // 2) E-mails Google de quem pode usar o sistema (equipe, gestor comercial, marketing)
+    function liberado() {
+      return request.auth != null && request.auth.token.email in [
+        "vinicius@exemplo.com",
+        "samara@exemplo.com",
+        "bernardo@exemplo.com",
+        "gestor@exemplo.com"
+      ];
+    }
+
+    // Gestor comercial: marcado pela dona dentro do app (Administrativo → Quem acessa)
+    function gestor() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/cfg/acesso)
+        && request.auth.uid in get(/databases/$(database)/documents/cfg/acesso).data.gestores;
+    }
+    function equipe() { return dona() || liberado(); }
+    function adm() { return dona() || (liberado() && gestor()); }
+
+    match /perfis/{uid} {
+      allow read: if equipe();
+      allow write: if request.auth != null && request.auth.uid == uid;
+    }
+    match /m/{mes}/leads/{id}  { allow read, write: if equipe(); }
+    match /risc/{mes}          { allow read, write: if equipe(); }
+    match /solic/{id}          { allow read, write: if equipe(); }
+    match /hist/{mes}          { allow read: if equipe(); allow write: if dona(); }
+    match /pub/{mes}           { allow read: if equipe(); allow write: if adm(); }
+    match /adm/{mes}           { allow read, write: if adm(); }
+    match /cfg/{doc}           { allow read: if equipe(); allow write: if dona(); }
+    match /sys/{doc}           { allow read: if equipe(); allow write: if dona(); }
+    match /legado/{doc}        { allow read: if equipe(); allow write: if dona(); }
+  }
+}
