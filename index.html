@@ -146,7 +146,7 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
   <nav class="tabs" id="tabs">
     <a href="#inicio" data-v="inicio">Início</a>
     <a href="#lancamentos" data-v="lancamentos">Lançamentos</a>
-    <a href="#funil" data-v="funil">Funil</a>
+    <a href="#funil" data-v="funil" id="tab-funil" hidden>Funil</a>
     <a href="#administrativo" data-v="administrativo" id="tab-adm" hidden>Administrativo</a>
   </nav>
   <div class="who" id="who"><span class="nm">Conectando…</span></div>
@@ -277,8 +277,8 @@ function assinarMes(k){if(!S.db||!isLive(k)||unsub[k])return;
     S.live[k]=snap.docs.filter(d=>d.exists).map(d=>fromDoc(k,d));S.raw=S.raw||{};S.raw[k]=snap.docs.filter(d=>d.exists).map(d=>({id:d.id,data:d.data()}));if(!snap.metadata.fromCache){clearTimeout(t);S.stale=false}
     S.liveReady[k]=true;pedirNomes();agendarSync();agendarRender();
   },e=>{clearTimeout(t);S.liveReady[k]=true;S.err="Erro ao ler os lançamentos ("+e.code+").";agendarRender()})}
-function atualizarAdm(){S.isAdm=S.isOwner||(!!S.me&&(S.cfg.gestores||[]).includes(S.me));
-  document.getElementById("tab-adm").hidden=!S.isAdm;if(S.isAdm)assinarAdm();renderWho()}
+function atualizarAdm(){S.isAdm=S.isOwner||!!(window.__ehAdm&&window.__ehAdm())||(!!S.me&&(S.cfg.gestores||[]).includes(S.me));
+  document.getElementById("tab-adm").hidden=!S.isAdm;document.getElementById("tab-funil").hidden=!S.isAdm;if(S.isAdm)assinarAdm();renderWho()}
 function assinarAdm(){if(!S.db||unsub.adm)return;
   unsub.adm=S.db.collection("adm").onSnapshot(snap=>{S.adm={};for(const d of snap.docs)if(d.exists)S.adm[d.id]=d.data();S.admReady=true;agendarSync();agendarRender()},
     e=>{S.admReady=true;agendarRender()})}
@@ -297,7 +297,7 @@ async function pedirNomes(){if(!S.user||nomesPend)return;const ids=new Set();
   try{const ps=await S.user.profiles(falta);for(const i of falta)S.names[i]=(ps&&ps[i]&&ps[i].name)||"Alguém da equipe"}catch(e){}
   nomesPend=false;agendarRender()}
 function renderWho(){const w=document.getElementById("who");const n=S.me?(S.names[S.me]||"Você"):"Não conectado";
-  w.innerHTML=`<span class="nm">${esc(n)}${S.isOwner?' · administradora':(S.isAdm?' · gestor':'')}</span><span class="avatar" aria-hidden="true">${esc(iniciais(n))}</span>`}
+  w.innerHTML=`<span class="nm">${esc(n)}${S.isOwner?' · administradora':(S.isAdm?' · gerência':'')}</span><span class="avatar" aria-hidden="true">${esc(iniciais(n))}</span>`}
 const podeEscrever=()=>!!S.db&&S.canWrite!==false&&!S.readOnlyForced;
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const filas={};function serial(key,fn){const p=(filas[key]||Promise.resolve()).then(fn,fn);filas[key]=p.catch(()=>{});return p}
@@ -314,7 +314,7 @@ function render(){const m=document.getElementById("main");
   if(S.err)h+=`<div class="banner bad">${esc(S.err)}</div>`;
   if(S.stale)h+=`<div class="banner warn">A conexão está lenta: os dados podem estar desatualizados.</div>`;
   if(S.view==="inicio")h+=vInicio();
-  else if(S.view==="lancamentos")h+=vLanc();else if(S.view==="funil")h+=vFunil();else h+=vAdm();
+  else if(S.view==="lancamentos")h+=vLanc();else if(S.view==="funil")h+=S.isAdm?vFunil():`<div class="card lock"><div><h2>Funil</h2><p class="muted">Esta área é da gerência e da diretoria. Use as abas Início e Lançamentos.</p></div></div>`;else h+=vAdm();
   const sujo={};for(const el of m.querySelectorAll("input[id],textarea[id],select[id]")){
     const d=el.tagName==="SELECT"?!(el.options[el.selectedIndex]&&el.options[el.selectedIndex].defaultSelected):el.value!==el.defaultValue;if(d)sujo[el.id]=el.value}
   m.innerHTML=h;
@@ -672,15 +672,15 @@ function vInicio(){const mesH=mesAtual,ano=mesH.slice(0,4);
   // TRIMESTRE
   const q=trimestre(mesH);const kq=MESES.filter(k=>k.startsWith(ano)&&trimestre(k)===q&&k<=mesH);const kp=MESES.filter(k=>k.startsWith(ano)&&trimestre(k)===q-1);
   const sq=soma(kq.map(finMes)),sp=kp.length?soma(kp.map(finMes)):null;
-  const linhas=kq.map(k=>{const f=finMes(k);return `<tr><td>${esc(nomeMes(k))}</td><td class="n">${NUM.format(f.m.leads)}</td><td class="n">${NUM.format(f.m.agend)}</td><td class="n">${NUM.format(f.m.pres)}</td><td class="n">${pct(f.m.comp)}</td><td class="n">${f.investido?BRL0.format(f.investido):"–"}</td></tr>`}).join("");
+  const linhas=kq.map(k=>{const f=finMes(k);return `<tr><td>${esc(nomeMes(k))}</td><td class="n">${NUM.format(f.m.leads)}</td><td class="n">${NUM.format(f.m.agend)}</td><td class="n">${NUM.format(f.m.pres)}</td><td class="n">${pct(f.m.comp)}</td>${S.isAdm?`<td class="n">${f.investido?BRL0.format(f.investido):"–"}</td>`:""}</tr>`}).join("");
   h+=`<div class="card blk"><h2>${q}º trimestre de ${ano} <small class="muted" style="font-size:12px;font-weight:500">${esc(kq.map(k=>MES_NOME[+k.slice(5)-1].slice(0,3)).join(", "))}${sp?" · vs "+(q-1)+"º trimestre inteiro (este ainda em andamento)":""}</small></h2><div class="mini">
    ${mini("Leads",NUM.format(sq.leads),sp?dlt(sq.leads,sp.leads):"")}
    ${mini("Agendados",NUM.format(sq.agend),pct(sq.agend/sq.leads)+" dos leads")}
    ${mini("Presenças",NUM.format(sq.pres),sp?dlt(sq.pres,sp.pres):"")}
    ${mini("Comparecimento",pct(sq.pres/(sq.pres+sq.falt)),sp?"antes "+pct(sp.pres/(sp.pres+sp.falt)):"")}
-   ${mini("Investido",sq.investido?BRL0.format(sq.investido):"–",sq.investido&&sq.pres?BRL.format(sq.investido/sq.pres)+" por presença":"")}
-  </div><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Mês</th><th class="n">Leads</th><th class="n">Agend.</th><th class="n">Presenças</th><th class="n">Comparec.</th><th class="n">Investido</th></tr></thead><tbody>${linhas}</tbody></table></div>
-   <div class="small muted" style="margin-top:8px">Investimento e valores que entraram: detalhe na aba Funil.</div></div>`;
+   ${S.isAdm?mini("Investido",sq.investido?BRL0.format(sq.investido):"–",sq.investido&&sq.pres?BRL.format(sq.investido/sq.pres)+" por presença":""):""}
+  </div><div class="tablewrap" style="margin-top:12px"><table><thead><tr><th>Mês</th><th class="n">Leads</th><th class="n">Agend.</th><th class="n">Presenças</th><th class="n">Comparec.</th>${S.isAdm?`<th class="n">Investido</th>`:""}</tr></thead><tbody>${linhas}</tbody></table></div>
+   ${S.isAdm?`<div class="small muted" style="margin-top:8px">Investimento e valores que entraram: detalhe na aba Funil.</div>`:""}</div>`;
   return h+`</div>`}
 /* ---- financeiro (aba Funil) ---- */
 function finMes(k){const m=met(ativos(k),k);
