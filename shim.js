@@ -151,6 +151,7 @@
 #fl-login input{width:100%;box-sizing:border-box;border:1px solid var(--line,#cfd5dc);border-radius:8px;padding:10px 12px;font:inherit;font-size:14px;margin:0 0 10px;background:#fff;color:inherit}
 #fl-login form{margin:0;text-align:left}#fl-login form button{width:100%}
 #fl-login .ou{display:flex;align-items:center;gap:10px;color:var(--muted,#5f6b7a);font-size:12px;margin:16px 0}#fl-login .ou:before,#fl-login .ou:after{content:"";flex:1;border-top:1px solid var(--line,#e2e6eb)}
+#fl-login .links{margin:12px 0 0;font-size:13px}#fl-login .links a{color:#0f6e66;font-weight:600;text-decoration:none}#fl-login .links a:hover{text-decoration:underline}
 #fl-sair{border:1px solid var(--line,#e2e6eb);background:transparent;border-radius:8px;padding:6px 10px;cursor:pointer;color:inherit;font:inherit;font-size:13px}
 .fl-alerta{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#16202c;color:#fff;padding:12px 18px;border-radius:10px;z-index:120;font-weight:600;max-width:90vw}`;
     document.head.appendChild(st);
@@ -171,33 +172,55 @@
     "auth/wrong-password": "E-mail ou senha incorretos.",
     "auth/user-not-found": "E-mail ou senha incorretos.",
     "auth/invalid-email": "E-mail inválido.",
+    "auth/email-already-in-use": "Este e-mail já tem senha. Volte e use \"Entrar\" (ou \"Esqueci a senha\").",
+    "auth/weak-password": "A senha precisa ter pelo menos 6 caracteres.",
+    "auth/missing-email": "Digite o seu e-mail.",
     "auth/too-many-requests": "Muitas tentativas. Espere alguns minutos e tente de novo.",
     "auth/operation-not-allowed": "Login com e-mail e senha não está ativado no Firebase.",
     "auth/popup-closed-by-user": "A janela do Google foi fechada antes de terminar.",
     "auth/unauthorized-domain": "Este endereço não está autorizado no Firebase (Domínios autorizados).",
   };
   const erroLogin = (e) => alertaLeve(MSG[e && e.code] || "Não foi possível entrar (" + ((e && e.code) || "erro") + ").");
-  function telaLogin() {
-    const el = telaAviso("Funil de Leads da Comunicação", "Entre com o e-mail, o seu nome e a senha que a administração criou para você.",
+  function telaLogin(modo) {
+    const criar = modo === "criar";
+    const el = telaAviso(criar ? "Criar minha senha" : "Funil de Leads da Comunicação",
+      criar ? "Primeiro acesso: use o e-mail que a administração liberou, o seu nome e escolha uma senha (mínimo 6 caracteres)."
+            : "Entre com o seu e-mail, nome e senha.",
       `<form id="fl-form" autocomplete="on">
         <input id="fl-email" type="email" placeholder="E-mail" autocomplete="username" required>
         <input id="fl-nome-login" list="fl-nomes-l" placeholder="Nome" autocomplete="off" required>
         <datalist id="fl-nomes-l"><option value="Vinícius"><option value="Samara"><option value="Bernardo"><option value="Juliana"></datalist>
-        <input id="fl-senha" type="password" placeholder="Senha" autocomplete="current-password" required>
-        <button type="submit">Entrar</button>
+        <input id="fl-senha" type="password" placeholder="${criar ? "Escolha uma senha" : "Senha"}" autocomplete="${criar ? "new-password" : "current-password"}" minlength="6" required>
+        ${criar ? `<input id="fl-senha2" type="password" placeholder="Repita a senha" autocomplete="new-password" minlength="6" required>` : ""}
+        <button type="submit">${criar ? "Criar senha e entrar" : "Entrar"}</button>
       </form>
-      <div class="ou">ou</div>
-      <button class="sec" id="fl-entrar" type="button">Entrar com Google</button>`);
-    el.querySelector("#fl-form").onsubmit = (ev) => {
+      <p class="links">${criar
+        ? `<a href="#" id="fl-voltar">Já tenho senha</a>`
+        : `<a href="#" id="fl-criar">Primeiro acesso? Criar minha senha</a> · <a href="#" id="fl-esqueci">Esqueci a senha</a>`}</p>
+      ${criar ? "" : `<div class="ou">ou</div><button class="sec" id="fl-entrar" type="button">Entrar com Google</button>`}`);
+    const q = (id) => el.querySelector(id);
+    if (q("#fl-criar")) q("#fl-criar").onclick = (ev) => { ev.preventDefault(); telaLogin("criar"); };
+    if (q("#fl-voltar")) q("#fl-voltar").onclick = (ev) => { ev.preventDefault(); telaLogin(); };
+    if (q("#fl-esqueci")) q("#fl-esqueci").onclick = (ev) => {
       ev.preventDefault();
-      const em = el.querySelector("#fl-email").value.trim(), se = el.querySelector("#fl-senha").value;
-      nomeDigitado = el.querySelector("#fl-nome-login").value.trim();
+      const em = q("#fl-email").value.trim();
+      if (!em) { alertaLeve("Digite o seu e-mail no campo E-mail e clique de novo em \"Esqueci a senha\"."); return; }
+      auth.sendPasswordResetEmail(em)
+        .then(() => alertaLeve("Se esse e-mail tiver acesso, chegará uma mensagem para criar uma nova senha. Confira também o spam.", false))
+        .catch(erroLogin);
+    };
+    q("#fl-form").onsubmit = (ev) => {
+      ev.preventDefault();
+      const em = q("#fl-email").value.trim(), se = q("#fl-senha").value;
+      if (criar && se !== q("#fl-senha2").value) { alertaLeve("As duas senhas não são iguais."); return; }
+      nomeDigitado = q("#fl-nome-login").value.trim();
       // Sessão só nesta aba: ao fechar o navegador, precisa entrar de novo (computador compartilhado)
       auth.setPersistence(firebase.auth.Auth.Persistence.SESSION)
-        .then(() => auth.signInWithEmailAndPassword(em, se))
+        .then(() => criar ? auth.createUserWithEmailAndPassword(em, se) : auth.signInWithEmailAndPassword(em, se))
         .catch((e) => { nomeDigitado = null; erroLogin(e); });
     };
-    el.querySelector("#fl-entrar").onclick = () => auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).then(() => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())).catch(erroLogin);
+    if (q("#fl-entrar")) q("#fl-entrar").onclick = () => auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL)
+      .then(() => auth.signInWithPopup(new firebase.auth.GoogleAuthProvider())).catch(erroLogin);
   }
   let nomeDigitado = null;
   const semAcento = (x) => String(x || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
