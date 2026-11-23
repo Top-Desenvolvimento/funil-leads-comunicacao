@@ -1,0 +1,35 @@
+name: Conferir presenças
+
+on:
+  workflow_dispatch:
+    inputs:
+      simular:
+        description: "Só simular (não grava nada no Funil)"
+        type: boolean
+        default: true
+      unidades:
+        description: "Unidades (vazio = todas). Ex.: caxias, bento"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  conferir:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install requests==2.32.3 beautifulsoup4==4.12.3 firebase-admin==6.5.0
+      - name: Conferir presenças
+        env:
+          SIMULAR: ${{ inputs.simular }}
+          UNIDADES: ${{ inputs.unidades }}
+          CLINICA_USUARIO: ${{ secrets.CLINICA_USUARIO }}
+          CLINICA_SENHA: ${{ secrets.CLINICA_SENHA }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: python conferir_presencas.py
