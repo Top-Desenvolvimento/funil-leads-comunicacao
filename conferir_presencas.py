@@ -251,21 +251,7 @@ def main():
     log(f"Conferência de presenças – {agora:%d/%m/%Y %H:%M} – período {ini:%d/%m/%Y} a {hoje:%d/%m/%Y}")
     log("MODO SIMULAÇÃO: nada será gravado no Funil." if simular else "Modo normal: as presenças encontradas serão gravadas no Funil.")
 
-    # 1) sistema da clínica
-    concluidas, falhas = {}, []
-    for chave, (base, _) in unidades.items():
-        try:
-            linhas, total = buscar_unidade(chave, base, ini, hoje)
-            concluidas[chave] = linhas
-            log(f"[{chave}] {len(linhas)} avaliações concluídas lidas" + (f" (o sistema informa {total})" if total is not None else ""))
-        except ErroLogin as e:
-            falhas.append(chave)
-            log(f"[{chave}] NÃO CONFERIDA: {e}")
-        except Exception as e:  # sem detalhes do conteúdo da página
-            falhas.append(chave)
-            log(f"[{chave}] NÃO CONFERIDA: erro {type(e).__name__}")
-
-    # 2) Funil (Firebase)
+    # Funil (Firebase)
     import firebase_admin
     from firebase_admin import credentials, firestore
 
@@ -277,6 +263,25 @@ def main():
     db = firestore.client()
     if not simular:
         db.document("perfis/robo").set({"nome": "Robô de conferência", "email": "", "visto": agora.isoformat()}, merge=True)
+
+    estado = db.document("robo/estado")
+    estado.set({"estado": "rodando", "inicio": agora.isoformat(), "simular": simular}, merge=True)
+
+    # 1) sistema da clínica
+    concluidas, falhas, motivo = {}, [], {}
+    for chave, (base, _) in unidades.items():
+        try:
+            linhas, total = buscar_unidade(chave, base, ini, hoje)
+            concluidas[chave] = linhas
+            log(f"[{chave}] {len(linhas)} avaliações concluídas lidas" + (f" (o sistema informa {total})" if total is not None else ""))
+        except ErroLogin as e:
+            falhas.append(chave)
+            motivo[chave] = str(e)
+            log(f"[{chave}] NÃO CONFERIDA: {e}")
+        except Exception as e:  # sem detalhes do conteúdo da página
+            falhas.append(chave)
+            motivo[chave] = "erro ao acessar o sistema"
+            log(f"[{chave}] NÃO CONFERIDA: erro {type(e).__name__}")
 
     res = {k: {"pendentes": 0, "presencas": 0, "pulados": 0} for k in unidades}
     sem_cidade = 0
@@ -337,6 +342,10 @@ def main():
     if sem_cidade:
         log(f"  {sem_cidade} agendados sem status ficaram de fora por não terem cidade de unidade.")
     log("Quem não teve avaliação concluída continua sem status para a equipe conferir.")
+    resumo = {k: ({"falha": motivo.get(k, "erro")} if k in falhas else res[k]) for k in unidades}
+    estado.set({"estado": "erro" if falhas and len(falhas) == len(unidades) else "concluido",
+                "fim": dt.datetime.now(FUSO).isoformat(), "simular": simular, "resumo": resumo,
+                "semCidade": sem_cidade}, merge=True)
     if falhas:
         sys.exit(2)
 
