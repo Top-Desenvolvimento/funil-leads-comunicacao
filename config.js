@@ -1,5 +1,18 @@
+/* ============================================================
+   CONFIGURAÇÃO DO SISTEMA
+   ============================================================ */
 window.FUNIL_CONFIG = {
+  // Dona do sistema (Nicele): acesso total + restaurar backup e definir gestores.
   donaEmail: "topesteticabucal.gerencia2@gmail.com",
+
+  // Acesso total (Início, Lançamentos, Funil e Administrativo).
+  // Precisa ser igual à lista acessoTotal() do firestore.rules.
+  acessoTotal: [
+    "topesteticabucal.gerencia3@gmail.com",   // Thainá Freitas – gerente
+    "gerencia.topcaxias@gmail.com"            // Marina Finco – diretora
+  ],
+
+  // Dados do projeto Firebase
   firebase: {
     apiKey: "AIzaSyBeih0H3P9QFDlk9vri-A6riZD_r1188-I",
     authDomain: "funil-leads-comunicacao.firebaseapp.com",
