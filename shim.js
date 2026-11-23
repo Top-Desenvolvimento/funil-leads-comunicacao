@@ -1,3 +1,4 @@
+
 /* Camada de compatibilidade: faz o app rodar fora do Claude, usando Firebase (login Google + Firestore).
    O app chama window.claude.use("db" | "user" | "downloads"); aqui essas chamadas viram Firebase. */
 (function () {
@@ -13,6 +14,9 @@
   const auth = firebase.auth();
   const fs = firebase.firestore();
   const donaEmail = String(CFG.donaEmail || "").toLowerCase().trim();
+  // E-mails com acesso total (Funil + Administrativo), além da dona
+  const acessoTotal = (CFG.acessoTotal || []).map((e) => String(e).toLowerCase().trim());
+  window.__ehAdm = () => !!auth.currentUser && acessoTotal.includes(String(auth.currentUser.email || "").toLowerCase());
 
   /* ---------- erros no formato que o app espera ---------- */
   function codigo(err) {
