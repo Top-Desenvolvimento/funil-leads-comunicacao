@@ -1,6 +1,7 @@
+
 """
 Robô de conferência de presenças – Funil de Leads da Comunicação.
-
+ 
 Para cada unidade:
   1. Entra no sistema da clínica com o usuário e a senha guardados nos Secrets do GitHub.
   2. Agendas > Busca de Consultas: Status "Concluído", serviços de AVALIAÇÃO,
@@ -10,7 +11,7 @@ Depois, no Funil (Firebase):
   4. Procura leads "Agendado" sem status, da mesma cidade, com a consulta até hoje.
   5. Se o COD do lead aparece entre as avaliações concluídas (em data igual ou posterior
      à entrada do lead), grava Status = "Presença".
-
+ 
 Regras de segurança:
   - Só LÊ o sistema da clínica (nenhum clique em editar, cancelar ou excluir).
   - Nunca sobrescreve status já lançado pela equipe.
@@ -23,10 +24,10 @@ import os
 import re
 import sys
 import unicodedata
-
+ 
 import requests
 from bs4 import BeautifulSoup
-
+ 
 # ---------------------------------------------------------------- configuração
 UNIDADES = {
     # chave: (endereço base, nomes de cidade usados no Funil)
@@ -51,38 +52,38 @@ PRIMEIRO_MES_LIVE = "2026-11"  # meses a partir deste ficam no Firebase (m/<mes>
 FUSO = dt.timezone(dt.timedelta(hours=-3))  # America/Sao_Paulo
 UA = "Mozilla/5.0 (FunilLeads-Robo/1.0)"
 TIMEOUT = 40
-
-
+ 
+ 
 def norm(txt):
     t = unicodedata.normalize("NFD", str(txt or ""))
     t = "".join(c for c in t if unicodedata.category(c) != "Mn")
     return re.sub(r"\s+", " ", t).strip().upper()
-
-
+ 
+ 
 def texto(conteudo):
     """O sistema declara windows-1252, mas aceita também UTF-8."""
     try:
         return conteudo.decode("utf-8")
     except UnicodeDecodeError:
         return conteudo.decode("cp1252", errors="replace")
-
-
+ 
+ 
 def log(msg):
     print(msg, flush=True)
-
-
+ 
+ 
 # ---------------------------------------------------------------- sistema da clínica
 class ErroLogin(Exception):
     pass
-
-
+ 
+ 
 def credenciais(chave):
     """Usuário/senha da unidade: CLINICA_USUARIO_<UNIDADE> ou, se não houver, CLINICA_USUARIO."""
     u = os.environ.get("CLINICA_USUARIO_" + chave.upper()) or os.environ.get("CLINICA_USUARIO")
     s = os.environ.get("CLINICA_SENHA_" + chave.upper()) or os.environ.get("CLINICA_SENHA")
     return u, s
-
-
+ 
+ 
 def campos_login(html):
     """Lê o formulário de login: campos ocultos (inclui o token que muda a cada acesso)."""
     sp = BeautifulSoup(html, "html.parser")
@@ -95,12 +96,12 @@ def campos_login(html):
         if nome and (inp.get("type") or "text").lower() == "hidden":
             dados[nome] = inp.get("value", "")
     return form.get("action") or "efetuar_login.php", dados
-
-
+ 
+ 
 def tela_de_login(html):
     return 'name="login"' in html and 'name="senha"' in html
-
-
+ 
+ 
 def ids_servicos(html):
     """Valores dos 6 serviços de avaliação no <select name="servicos[]"> desta unidade."""
     sp = BeautifulSoup(html, "html.parser")
@@ -110,8 +111,8 @@ def ids_servicos(html):
     alvo = {norm(s) for s in SERVICOS}
     ids = [o.get("value") for o in sel.find_all("option") if o.get("value") and norm(o.get_text()) in alvo]
     return ids
-
-
+ 
+ 
 def ler_resultado(html):
     """Linhas da busca: [{idpaciente, data(AAAA-MM-DD), tel8}] e o total informado pela página."""
     sp = BeautifulSoup(html, "html.parser")
@@ -142,22 +143,22 @@ def ler_resultado(html):
     if m:
         total = int(m.group(1))
     return linhas, total
-
-
+ 
+ 
 def buscar_unidade(chave, base, data_ini, data_fim):
     usuario, senha = credenciais(chave)
     if not usuario or not senha:
         raise ErroLogin("usuário/senha não cadastrados nos Secrets")
     s = requests.Session()
     s.headers["User-Agent"] = UA
-
+ 
     r = s.get(base + "index.php", timeout=TIMEOUT)
     acao, dados = campos_login(texto(r.content))
     dados.update({"usuario": usuario, "senha": senha, "redir": dados.get("redir", "")})
     # usa sempre o endereço da unidade (o formulário pode apontar para http em vez de https)
     url_login = base + (acao.split("?")[0].rstrip("/").split("/")[-1] or "efetuar_login.php")
     s.post(url_login, data=dados, timeout=TIMEOUT)
-
+ 
     r = s.get(base + "index2.php", params={"conteudo": "busca_consultas"}, timeout=TIMEOUT)
     html = texto(r.content)
     if tela_de_login(html):
@@ -167,7 +168,7 @@ def buscar_unidade(chave, base, data_ini, data_fim):
         log(f"  aviso: {len(ids)} de {len(SERVICOS)} serviços de avaliação encontrados nesta unidade")
     if not ids:
         raise RuntimeError("nenhum serviço de avaliação encontrado")
-
+ 
     params = [("conteudo", "busca_consultas"), ("pesquisa", "pesquisa"), ("idade_minima", ""), ("idade_maxima", "")]
     params += [("servicos[]", i) for i in ids]
     params += [("situacao", ""), ("baixa", ""), ("status", STATUS_CONCLUIDO),
@@ -191,20 +192,20 @@ def buscar_unidade(chave, base, data_ini, data_fim):
     except Exception:
         pass
     return todas, total
-
-
+ 
+ 
 # ---------------------------------------------------------------- comparação
 def cods_do_lead(lead):
     """Códigos possíveis no campo COD do lead (ex.: '13197 | NOME', '12129 / 2502')."""
     txt = str(lead.get("cod") or "")
     return {c.lstrip("0") for c in re.findall(r"(?<!\d)\d{2,7}(?!\d)", txt) if c.lstrip("0")}
-
-
+ 
+ 
 def tel8(x):
     d = re.sub(r"\D", "", str(x or ""))
     return d[-8:] if len(d) >= 8 else ""
-
-
+ 
+ 
 def decidir(lead, concluidas):
     """Devolve a data da avaliação concluída que confirma a presença, ou None."""
     cods = cods_do_lead(lead)
@@ -220,41 +221,41 @@ def decidir(lead, concluidas):
         if melhor is None or (c["data"] or "") < melhor:
             melhor = c["data"] or ""
     return melhor
-
-
+ 
+ 
 def meses_live(hoje):
     out, a, m = [], int(PRIMEIRO_MES_LIVE[:4]), int(PRIMEIRO_MES_LIVE[5:])
     while (a, m) <= (hoje.year, hoje.month):
         out.append(f"{a:04d}-{m:02d}")
         a, m = (a + 1, 1) if m == 12 else (a, m + 1)
     return out
-
-
+ 
+ 
 def unidade_da_cidade(cidade):
     n = norm(cidade)
     for chave, (_, nomes) in UNIDADES.items():
         if n in {norm(x) for x in nomes}:
             return chave
     return None
-
-
+ 
+ 
 # ---------------------------------------------------------------- principal
 def main():
     simular = os.environ.get("SIMULAR", "true").lower() in ("1", "true", "sim", "yes")
     pedidas = [u.strip().lower() for u in (os.environ.get("UNIDADES") or "").replace(";", ",").split(",") if u.strip()]
     unidades = {k: v for k, v in UNIDADES.items() if not pedidas or k in pedidas}
-
+ 
     agora = dt.datetime.now(FUSO)
     hoje = agora.date()
     ini = (hoje.replace(day=1) - dt.timedelta(days=1)).replace(day=1)  # 1º dia do mês anterior
     hoje_iso = hoje.isoformat()
     log(f"Conferência de presenças – {agora:%d/%m/%Y %H:%M} – período {ini:%d/%m/%Y} a {hoje:%d/%m/%Y}")
     log("MODO SIMULAÇÃO: nada será gravado no Funil." if simular else "Modo normal: as presenças encontradas serão gravadas no Funil.")
-
+ 
     # Funil (Firebase)
     import firebase_admin
     from firebase_admin import credentials, firestore
-
+ 
     sa = os.environ.get("FIREBASE_SERVICE_ACCOUNT")
     if not sa:
         log("ERRO: o Secret FIREBASE_SERVICE_ACCOUNT não está cadastrado.")
@@ -263,10 +264,10 @@ def main():
     db = firestore.client()
     if not simular:
         db.document("perfis/robo").set({"nome": "Robô de conferência", "email": "", "visto": agora.isoformat()}, merge=True)
-
+ 
     estado = db.document("robo/estado")
     estado.set({"estado": "rodando", "inicio": agora.isoformat(), "simular": simular}, merge=True)
-
+ 
     # 1) sistema da clínica
     concluidas, falhas, motivo = {}, [], {}
     for chave, (base, _) in unidades.items():
@@ -282,7 +283,7 @@ def main():
             falhas.append(chave)
             motivo[chave] = "erro ao acessar o sistema"
             log(f"[{chave}] NÃO CONFERIDA: erro {type(e).__name__}")
-
+ 
     res = {k: {"pendentes": 0, "presencas": 0, "pulados": 0} for k in unidades}
     sem_cidade = 0
     for mes in meses_live(hoje):
@@ -303,11 +304,11 @@ def main():
             if simular:
                 res[chave]["presencas"] += 1
                 continue
-
+ 
             ref = snap.reference
             t = agora.isoformat()
             txt = "Robô de conferência: avaliação concluída" + (f" em {data_av[8:10]}/{data_av[5:7]}/{data_av[:4]}" if data_av else "") + " no sistema da clínica"
-
+ 
             @firestore.transactional
             def gravar(tr):
                 atual = ref.get(transaction=tr).to_dict() or {}
@@ -318,12 +319,12 @@ def main():
                 tr.update(ref, {"status": "Presença", "notas": (notas + [n])[-60:], "atualizado": t,
                                 "atualizadoPor": "robo", "conferidoRobo": t})
                 return True
-
+ 
             if gravar(db.transaction()):
                 res[chave]["presencas"] += 1
             else:
                 res[chave]["pulados"] += 1
-
+ 
     # 3) resumo (só números)
     log("")
     log("RESUMO" + (" (simulação)" if simular else ""))
@@ -342,13 +343,14 @@ def main():
     if sem_cidade:
         log(f"  {sem_cidade} agendados sem status ficaram de fora por não terem cidade de unidade.")
     log("Quem não teve avaliação concluída continua sem status para a equipe conferir.")
-    resumo = {k: ({"falha": motivo.get(k, "erro")} if k in falhas else res[k]) for k in unidades}
+    resumo = {k: ({"falha": motivo.get(k, "erro")} if k in falhas else {**res[k], "lidas": len(concluidas.get(k, []))}) for k in unidades}
     estado.set({"estado": "erro" if falhas and len(falhas) == len(unidades) else "concluido",
                 "fim": dt.datetime.now(FUSO).isoformat(), "simular": simular, "resumo": resumo,
                 "semCidade": sem_cidade}, merge=True)
     if falhas:
         sys.exit(2)
-
-
+ 
+ 
 if __name__ == "__main__":
     main()
+ 
