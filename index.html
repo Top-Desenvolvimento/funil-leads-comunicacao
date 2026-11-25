@@ -140,6 +140,7 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
 @media (max-width:640px){.form2{grid-template-columns:1fr}.fbar{grid-template-columns:100px 1fr 80px}.who span.nm{display:none}}
 @media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(30px);opacity:.6}}}
 .bar-h.rk{grid-template-columns:150px 1fr 96px}.rk2{display:grid;grid-template-columns:1fr 1fr;gap:24px}@media(max-width:760px){.rk2{grid-template-columns:1fr}}
+.subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}.subtab{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.subtab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}.subtab:hover{border-color:var(--accent)}
 </style>
 </head>
 <body>
@@ -339,8 +340,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     <div class="row"><label class="f" for="mes">Mês<select id="mes" data-a="mes">${mesOpts(mes)}</select></label>
     <div><div class="small muted">${NUM.format(ls.length)} leads neste mês${nRisc?` · ${NUM.format(nRisc)} transferidos para meses seguintes`:""}</div></div></div>
     ${live?"":`<span class="banner info">Mês arquivado: dados importados da planilha, somente leitura.</span>`}
-  </div><div style="margin-top:12px">${barraExport(mes)}</div></div>`;
-  if(S.isAdm)h+=vRobo();
+  </div></div>`;
   if(live&&S.isOwner&&mes==="2026-11"&&S.migr===false)h+=`<div class="banner warn"><b>${ls.length?"A importação de novembro não terminou.":"Novembro ainda está vazio."}</b> Importe os 304 leads de novembro da planilha antes de a equipe começar. <button class="btn pri" data-a="importar" id="btn-imp">Importar novembro</button><span id="imp-prog"></span></div>`;
   if(live&&!S.db)h+=`<div class="banner bad">Entre na sua conta para lançar e editar leads.</div>`;
   else if(live&&!podeEscrever())h+=`<div class="banner warn">Seu acesso é só de leitura. Peça à administradora para te convidar como Editor.</div>`;
@@ -576,15 +576,25 @@ function deltaTxt(a,b,inverso){if(!b||!isFinite(a/b))return "";const d=a/b-1;con
 function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área administrativa</h2><p class="muted">Só a administradora e o gestor comercial acessam esta área.</p></div></div>`;
   if(!S.admReady)return `<div class="card empty">Carregando dados administrativos…</div>`;
   const porMes={};const k0=S.mes;porMes[k0]=admMes(k0);
-  let h=`<div class="card"><div class="row" style="justify-content:space-between">
+  const aba=S.admTab||"metas";const nSol=(S.solic||[]).filter(x=>x.status==="pendente").length;
+  const tabs=[["metas","Conferência de metas"],["presencas","Conferência de presenças"],["inclusoes","Inclusões e backups"],["exportar","Exportar"]];
+  let h=`<div class="card"><div class="row" style="justify-content:space-between;align-items:flex-end">
    <label class="f" for="am">Mês<select id="am" data-a="mes">${mesOpts(S.mes)}</select></label>
-   <span class="small muted">Conferências, metas e lançamento de valores. Os números de custo e retorno estão na aba Funil.</span></div></div>`;
-  h+=vSolic();
-  // mês: investimento + valores
+   <span class="small muted">Os números de custo e retorno estão na aba Funil.</span></div>
+   <div class="subtabs" role="tablist">${tabs.map(([k,t])=>`<button role="tab" class="subtab" data-a="admtab" data-v="${k}" aria-selected="${aba===k}">${t}${k==="inclusoes"&&nSol?` <span class="tag warn">${nSol}</span>`:""}</button>`).join("")}</div></div>`;
+  if(aba==="presencas"){h+=vRobo();return h}
+  if(aba==="exportar"){h+=`<div class="card"><h2>Exportar ${esc(nomeMes(S.mes))} <small>leads com todas as informações e o resultado final do mês</small></h2>${barraExport(S.mes)}<div class="small muted" style="margin-top:8px">Para outro mês, troque o mês no campo acima.</div></div>`;return h}
+  if(aba==="inclusoes"){h+=vSolic();
   {const k=S.mes,a=porMes[k]||admMes(k);
     h+=`<div class="card"><h2>Investimento de ${nomeMes(k)} <small>por canal, se souber; senão use "Sem divisão"</small></h2><div class="row">
      ${[["principal","Principal"],["paralela","Paralela"],["outros","Outros"],["semdiv","Sem divisão"]].map(([c,n])=>`<label class="f" for="inv-${c}">${n}<input class="money" id="inv-${c}" inputmode="decimal" data-a="inv" data-k="${c}" value="${a.inv[c]!=null?String(a.inv[c]).replace(".",","):""}" placeholder="0,00"></label>`).join("")}
-     <div><div class="small muted">Total</div><b class="num" style="font-size:18px">${BRL.format(a.investido)}</b></div></div></div>`;
+     <div><div class="small muted">Total</div><b class="num" style="font-size:18px">${BRL.format(a.investido)}</b></div></div></div>`;}
+    h+=vRespImport();
+    if(S.isOwner)h+=vAcesso();
+    return h}
+  // Conferência de metas
+  h+=vMetas(S.mes);
+  {const k=S.mes;
     const ls=ativos(k).filter(R.pres);const val=(S.adm[k]&&S.adm[k].valores)||{};
     const vis=S.adm_soSemValor?ls.filter(l=>!(+val[l.key]>0)):ls;
     h+=`<div class="card"><h2>Valores que entraram · pacientes com presença em ${nomeMes(k)} <small>${ls.filter(l=>+val[l.key]>0).length} de ${ls.length} com valor</small></h2>
@@ -593,9 +603,6 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
      ${vis.map(l=>`<tr><td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td><td>${esc(l.canal)}</td><td class="small">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td>
        <td class="n"><input class="money" id="v-${esc(l.key)}" inputmode="decimal" data-a="valor" data-k="${esc(l.key)}" value="${val[l.key]!=null?String(val[l.key]).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td></tr>`).join("")}
      </tbody></table></div>`:`<div class="empty">Nenhum paciente com presença ${S.adm_soSemValor?"sem valor ":""}neste mês.</div>`}</div>`}
-  h+=vMetas(S.mes);
-  h+=vRespImport();
-  if(S.isOwner)h+=vAcesso();
   return h}
  
 /* ---- Responsáveis pelos agendamentos: importar da planilha de metas do comercial ---- */
@@ -881,21 +888,45 @@ function calcMeta(l){const a=S.adm[l.mes]||{};const valor=+((a.valores||{})[l.ke
   const eleg=valor>=META.limpezaMin;const limp=eleg&&mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
   const total=META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag:agendadorNome(l),midia:isMidia(l)}}
 const reais=v=>BRL.format(v);
-function vMetas(K){const ps=presencasDoMes(K).sort((a,b)=>(a.agendamento||"").localeCompare(b.agendamento||""));const cs=ps.map(l=>[l,calcMeta(l)]);
+ 
+/* ---- filtro da conferência de metas: colaborador + período ---- */
+function presencasPeriodo(ini,fim){const out=[];for(const m of MESES)for(const l of ativos(m)){if(!R.pres(l))continue;const d=l.agendamento||l.data||"";if(d>=ini&&d<=fim)out.push(l)}return out}
+function periodoMetas(K){const f=S.mf||{},p=f.p||"mes";
+  if(p==="hoje")return [hoje,hoje,"hoje ("+fmtData(hoje)+")"];
+  if(p==="semana"){const w=(new Date(hoje+"T12:00").getDay()+6)%7;const a=somaDias(hoje,-w);return [a,hoje,fmtData(a)+" a "+fmtData(hoje)]}
+  if(p==="custom"){let a=f.de||K+"-01",b=f.ate||fimMes(K);if(a>b)[a,b]=[b,a];return [a,b,fmtData(a)+" a "+fmtData(b)]}
+  return [K+"-01",fimMes(K),nomeMes(K)]}
+function vFiltroMetas(K,ini,fim,rot,col,cs){const f=S.mf||{},p=f.p||"mes";
+  const nomes=[...new Set([...EQUIPE,...presencasPeriodo(ini,fim).map(agendadorNome).filter(Boolean)])];
+  const o=(v,t,sel)=>`<option value="${esc(v)}"${sel===v?" selected":""}>${esc(t)}</option>`;
+  let h=`<div class="card"><div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap">
+   <label class="f" for="mf-col">Colaborador<select id="mf-col" data-a="mfcol">${o("","Todos",col)}${nomes.map(n=>o(n,n,col)).join("")}${o("Juliana","Juliana (mídias)",col)}${o("Sem responsável","Sem responsável",col)}</select></label>
+   <label class="f" for="mf-p">Período<select id="mf-p" data-a="mfp">${o("mes","Mês selecionado ("+nomeMes(K)+")",p)}${o("semana","Esta semana",p)}${o("hoje","Hoje",p)}${o("custom","Escolher datas…",p)}</select></label>
+   ${p==="custom"?`<label class="f" for="mf-de">De<input type="date" id="mf-de" data-a="mfde" value="${esc(ini)}"></label><label class="f" for="mf-ate">Até<input type="date" id="mf-ate" data-a="mfate" value="${esc(fim)}"></label>`:""}
+   ${col||p!=="mes"?`<button class="btn" data-a="mflimpar">Limpar filtro</button>`:""}</div>`;
+  if(col){const t=cs.reduce((a,[,c])=>({pres:a.pres+1,limp:a.limp+(c.limp?1:0),proc:a.proc+c.proc,total:a.total+c.total,verif:a.verif+(c.verificar?1:0)}),{pres:0,limp:0,proc:0,total:0,verif:0});
+    h+=col==="Juliana"
+      ?`<div class="kpis" style="margin-top:14px">${kpi("Presenças de mídia",NUM.format(t.pres),esc(rot),"var(--accent)")}${kpi("Meta da Juliana",reais(t.pres*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>`
+      :`<div class="kpis" style="margin-top:14px">${kpi("Presenças",NUM.format(t.pres),reais(t.pres*META.presenca),"var(--info)")}${kpi("Limpezas",NUM.format(t.limp),reais(t.limp*META.limpeza)+(t.verif?" · "+t.verif+" a verificar":""),"var(--accent)")}${kpi("Proced. pagos",NUM.format(t.proc),reais(t.proc*META.proc),"var(--muted)")}${kpi("Meta de "+col,reais(t.total),esc(rot),"var(--ok)")}</div>`}
+  return h+`<div class="small muted" style="margin-top:10px">As presenças contam pela data da consulta. O valor de cada paciente e a limpeza continuam sendo lançados na tabela de conferência abaixo.</div></div>`}
+function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col)||"";
+  const psAll=presencasPeriodo(ini,fim).sort((a,b)=>(a.agendamento||"").localeCompare(b.agendamento||""));const csAll=psAll.map(l=>[l,calcMeta(l)]);
+  const cs=col==="Juliana"?csAll.filter(([,c])=>c.midia):col==="Sem responsável"?csAll.filter(([,c])=>!c.ag):col?csAll.filter(([,c])=>c.ag===col):csAll;const ps=cs.map(([l])=>l);
   const por={};for(const [l,c] of cs){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0,verif:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total;if(c.verificar)por[k].verif++}
   const verif=cs.filter(([,c])=>c.verificar).length;
   const tot=Object.values(por).reduce((a,b)=>({pres:a.pres+b.pres,limp:a.limp+b.limp,proc:a.proc+b.proc,total:a.total+b.total}),{pres:0,limp:0,proc:0,total:0});
   const linhas=Object.entries(por).sort((a,b)=>b[1].total-a[1].total).map(([id,v])=>[id==="__sem"?'<span class="muted">Sem responsável</span>':esc(id),NUM.format(v.pres),reais(v.pres*META.presenca),NUM.format(v.limp),reais(v.limp*META.limpeza),NUM.format(v.proc),reais(v.proc*META.proc),`<b>${reais(v.total)}</b>`,v.verif?`<span class="tag">${v.verif} a verificar</span>`:""]);
   const juli=cs.filter(([,c])=>c.midia);const porCanal={};for(const [l] of juli){const k=l.canal==="Outros"&&l.fonte?l.fonte:l.canal;porCanal[k]=(porCanal[k]||0)+1}
-  let h=`<div class="card"><h2>Metas da equipe de comunicação · presenças com consulta em ${nomeMes(K)} <small>R$ ${META.presenca} por presença · + R$ ${META.limpeza} por limpeza confirmada · R$ ${META.proc} por procedimento pago no mês</small></h2>
+  let h=vFiltroMetas(K,ini,fim,rot,col,cs);
+  if(col!=="Juliana")h+=`<div class="card"><h2>Metas da equipe de comunicação · presenças com consulta em ${esc(rot)}${col?" · "+esc(col):""} <small>R$ ${META.presenca} por presença · + R$ ${META.limpeza} por limpeza confirmada · R$ ${META.proc} por procedimento pago no mês</small></h2>
    ${verif?`<div class="banner warn" style="margin-bottom:12px"><b>Lembrete:</b> ${verif} presença${verif>1?"s":""} com valor a partir de ${reais(META.limpezaMin)}: verifique se foi limpeza e marque Sim ou Não na tabela abaixo.</div>`:""}
-   ${linhas.length?tabela(["Colaborador (quem agendou)","Presenças","R$ presenças","Limpezas","R$ limpezas","Proced. pagos","R$ proced.","Total da meta",""],linhas,["TOTAL",NUM.format(tot.pres),reais(tot.pres*META.presenca),NUM.format(tot.limp),reais(tot.limp*META.limpeza),NUM.format(tot.proc),reais(tot.proc*META.proc),`<b>${reais(tot.total)}</b>`,""]):`<div class="empty">Nenhuma presença com consulta em ${nomeMes(K)}.</div>`}
+   ${linhas.length?tabela(["Colaborador (quem agendou)","Presenças","R$ presenças","Limpezas","R$ limpezas","Proced. pagos","R$ proced.","Total da meta",""],linhas,["TOTAL",NUM.format(tot.pres),reais(tot.pres*META.presenca),NUM.format(tot.limp),reais(tot.limp*META.limpeza),NUM.format(tot.proc),reais(tot.proc*META.proc),`<b>${reais(tot.total)}</b>`,""]):`<div class="empty">Nenhuma presença com consulta em ${esc(rot)}${col?" para "+esc(col):""}.</div>`}
    ${linhas.length?`<div class="row" style="margin-top:10px"><button class="btn" data-a="copiarmetas">Copiar relatório de metas</button><span class="small muted">Cole no Excel, Sheets ou WhatsApp.</span></div>`:""}
   </div>`;
-  h+=`<div class="card" style="border-left:4px solid var(--accent)"><h2>Meta da Juliana · marketing <small>R$ ${META.juli} por presença vinda das mídias (Principal, Paralela, Site, Empresas, Google, YouTube, TikTok, Pinterest, Instagram, Facebook, WhatsApp dos anúncios e Anúncio Juli)</small></h2>
-   <div class="kpis">${kpi("Presenças de mídia",NUM.format(juli.length),"de "+NUM.format(cs.length)+" presenças no mês","var(--accent)")}${kpi("Meta da Juliana",reais(juli.length*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>
+  if(!col||col==="Juliana")h+=`<div class="card" style="border-left:4px solid var(--accent)"><h2>Meta da Juliana · marketing <small>R$ ${META.juli} por presença vinda das mídias (Principal, Paralela, Site, Empresas, Google, YouTube, TikTok, Pinterest, Instagram, Facebook, WhatsApp dos anúncios e Anúncio Juli)</small></h2>
+   <div class="kpis">${kpi("Presenças de mídia",NUM.format(juli.length),"de "+NUM.format(csAll.length)+" presenças no período","var(--accent)")}${kpi("Meta da Juliana",reais(juli.length*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>
    ${juli.length?`<div class="small muted" style="margin-top:10px">Por origem: ${Object.entries(porCanal).sort((a,b)=>b[1]-a[1]).map(([k,v])=>esc(k)+" "+v).join(" · ")}</div>`:""}</div>`;
-  if(ps.length){h+=`<div class="card"><h2>Conferência das presenças · ${nomeMes(K)} <small>${ps.length} presenças · valor, limpeza e procedimentos são lançados aqui pelo gestor</small></h2>
+  if(ps.length){h+=`<div class="card"><h2>Conferência das presenças · ${esc(rot)}${col?" · "+esc(col):""} <small>${ps.length} presenças · valor, limpeza e procedimentos são lançados aqui pelo gestor</small></h2>
    <div class="row" style="margin-bottom:10px"><button class="chip" data-a="soverif" aria-pressed="${!!S.soVerif}">Só limpezas a verificar</button></div>
    <div class="tablewrap"><table><thead><tr><th>Consulta</th><th>Contato</th><th>COD / Obs.</th><th>Cidade</th><th>Interesse</th><th>Origem</th><th>Agendou</th><th class="n">Valor (R$)</th><th>Limpeza?</th><th class="n">Proced. pagos</th><th class="n">Meta</th></tr></thead><tbody>
    ${cs.filter(([,c])=>!S.soVerif||c.verificar).map(([l,c])=>`<tr><td class="n">${esc(fmtData(l.agendamento||l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td class="small" style="max-width:200px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td>
@@ -961,6 +992,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="admmodo"){S.adm_mode=t.dataset.v;render()}
   else if(a==="finmodo"){S.fin_mode=t.dataset.v;render()}
   else if(a==="roborun"){rodarRobo()}
+  else if(a==="mflimpar"){S.mf={};render()}
+  else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
   else if(a==="respcancel"){S.respPrev=null;render()}
   else if(a==="rkhoje"){e.preventDefault();S.rk={p:"hoje"};render()}
@@ -979,6 +1012,9 @@ document.addEventListener("input",e=>{const t=e.target;const a=t.dataset&&t.data
   else if(a==="dset"&&S.sel){S.sel.draft[t.dataset.k]=t.value;if(t.dataset.k==="agendamento"||t.dataset.k==="status")renderDrawer()}});
 document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&&t.dataset.a;
   if(a==="robosim"){S.robo_simular=!!t.checked;return}
+  if(a==="mfcol"){S.mf={...(S.mf||{}),col:t.value};render();return}
+  if(a==="mfp"){S.mf={...(S.mf||{}),p:t.value};render();return}
+  if(a==="mfde"||a==="mfate"){S.mf={...(S.mf||{}),p:"custom",[a==="mfde"?"de":"ate"]:t.value};render();return}
   if(a==="respcriar"){S.respCriar=!!t.checked;return}
   if(a==="respmes"){S.respMes=t.value;if(S.respPrev){S.respPrev={...S.respPrev,...cruzarResp(S.respPrev.linhas,t.value)}}render();return}
   if(a==="respfile"){const f=t.files&&t.files[0];t.value="";if(f){S.respMes=null;const sel=document.getElementById("resp-mes");const auto=mesDoArquivo(f.name);S.respMes=auto||(sel&&sel.value)||S.mes;importarResp(f)}return}
@@ -1015,9 +1051,9 @@ function vRobo(){const r=S.robo||{},est=r.estado||"",simul=S.robo_simular!==fals
   let tab="";
   if(r.resumo&&(est==="concluido"||est==="erro")){
     const linhas=Object.keys(ROBO_UN).filter(k=>r.resumo[k]).map(k=>{const x=r.resumo[k];
-      return `<tr><td>${esc(ROBO_UN[k])}</td>${x.falha?`<td colspan="3" class="small" style="color:var(--bad,#b42318)">Não conferida: ${esc(x.falha)}</td>`:`<td class="n">${NUM.format(x.pendentes||0)}</td><td class="n"><b>${NUM.format(x.presencas||0)}</b></td><td class="n">${NUM.format(x.pulados||0)}</td>`}</tr>`}).join("");
+      return `<tr><td>${esc(ROBO_UN[k])}</td>${x.falha?`<td colspan="4" class="small" style="color:var(--bad,#b42318)">Não conferida: ${esc(x.falha)}</td>`:`<td class="n">${x.lidas!=null?NUM.format(x.lidas):"–"}</td><td class="n">${NUM.format(x.pendentes||0)}</td><td class="n"><b>${NUM.format(x.presencas||0)}</b></td><td class="n">${NUM.format(x.pulados||0)}</td>`}</tr>`}).join("");
     tab=`<div class="small muted" style="margin:10px 0 6px">Última conferência: <b>${esc(fmtHora(r.fim))}</b>${r.simular?" · <b>simulação</b> (nada foi gravado)":""}${r.por?" · pedida por "+esc(nome(r.por)):""}</div>
-     <div class="tablewrap"><table><thead><tr><th>Unidade</th><th class="n">Agendados sem status</th><th class="n">${r.simular?"Teriam presença":"Presenças gravadas"}</th><th class="n">Pulados</th></tr></thead><tbody>${linhas}</tbody></table></div>`}
+     <div class="tablewrap"><table><thead><tr><th>Unidade</th><th class="n">Avaliações concluídas no sistema</th><th class="n">Agendados sem status</th><th class="n">${r.simular?"Teriam presença":"Presenças gravadas"}</th><th class="n">Pulados</th></tr></thead><tbody>${linhas}</tbody></table></div>`}
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
     <div><h2 style="margin:0">Conferir presenças no sistema da clínica</h2>
     <div class="small muted">O robô procura as avaliações concluídas nas 7 unidades e marca Presença nos agendados sem status.</div></div>
@@ -1069,5 +1105,6 @@ window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
 </html>
+ 
  
  
