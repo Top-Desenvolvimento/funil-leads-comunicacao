@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -198,14 +197,14 @@ const MESES=listaMeses();
 const isLive=k=>k>ULTIMO_ARQUIVADO;
 const trimestre=k=>Math.ceil(+k.slice(5,7)/3);
 const sitClass=s=>({"Em contato":"p-contato","Agendado":"p-agendado","Presença":"p-presenca","Faltoso":"p-faltoso","Cancelado":"p-cancelado","Perdeu interesse":"p-perdeu"}[s]||"p-contato");
- 
+
 /* ---------------- estado ---------------- */
 const S={resp:{},view:"inicio",mes:MESES.includes(mesAtual)?mesAtual:MESES[MESES.length-1],hist:null,live:{},liveReady:{},adm:{},admReady:false,
   db:null,user:null,me:null,isOwner:false,canWrite:null,readOnlyForced:false,names:{},
   f:{sit:"",cidade:"",canal:"",interesse:"",resp:"",busca:"",pend:false,lim:150,st:"",eDe:"",eAte:"",cDe:"",cAte:""},
   ff:{cidade:"",canal:"",interesse:"",resp:""}, adm_mode:"mes", adm_tri:Math.ceil((+mesAtual.slice(5,7))/3), adm_soSemValor:false,
   stale:false, err:"", migr:null, risc:{}, solic:[], cfg:{gestores:[]}, isAdm:false, novoTel:"", pessoas:null, pub:{}, fin_mode:"mes"};
- 
+
 /* ---------------- dados ---------------- */
 function fromHist(mes,arr,i){return {key:"h-"+mes+"-"+i,mes,live:false,canal:arr[0],data:arr[1],contato:arr[2],cidade:arr[3],interesse:arr[4],
   situacao:arr[5],status:arr[6],cod:"",obs:arr[7],agendamento:arr[8],fechou:arr[9],fonte:arr[10],resp:null,notas:[]}}
@@ -260,7 +259,7 @@ function porIntegrante(ls){const g={};for(const n of EQUIPE)g[n]={ag:0,pres:0,fa
 const solicDe=key=>S.solic.find(x=>x.key===key&&x.status==="pendente");
 const nome=id=>id?(S.names[id]||"Alguém da equipe"):"Importado da planilha";
 const iniciais=n=>n.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join("")||"?";
- 
+
 /* ---------------- plataforma ---------------- */
 let unsub={};
 async function boot(){
@@ -315,7 +314,7 @@ function renderWho(){const w=document.getElementById("who");const n=S.me?(S.name
 const podeEscrever=()=>!!S.db&&S.canWrite!==false&&!S.readOnlyForced;
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const filas={};function serial(key,fn){const p=(filas[key]||Promise.resolve()).then(fn,fn);filas[key]=p.catch(()=>{});return p}
- 
+
 /* ---------------- render geral ---------------- */
 function rota(){const h=location.hash.replace("#","");S.view=["inicio","lancamentos","funil","administrativo"].includes(h)?h:"inicio";
   for(const a of document.querySelectorAll("#tabs a"))if(a.dataset.v===S.view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");
@@ -338,8 +337,14 @@ function render(){const m=document.getElementById("main");
 }
 const opts=(arr,v,vazio)=>(vazio!=null?`<option value="">${esc(vazio)}</option>`:"")+arr.map(o=>`<option${o===v?" selected":""}>${esc(o)}</option>`).join("");
 const mesOpts=v=>MESES.map(k=>`<option value="${k}"${k===v?" selected":""}>${nomeMes(k)}${isLive(k)?"":" · arquivo"}</option>`).join("");
- 
+
 /* ---------------- LANÇAMENTOS ---------------- */
+function vConfMes(ls,mes,ativoF,botao){const cm=met(ls,mes);
+   const it=[["Leads",cm.leads],["Agendados",cm.agend],["Presenças",cm.pres],["Faltas",cm.falt],["Cancelados",cm.canc],["Em contato",cm.emc],["Perdeu interesse",cm.perd],["Aguardando baixa",cm.aguard]];
+   let h=`<div class="conf" role="status" aria-live="polite"><span class="conf-t">Conferência ${ativoF?"do filtro":"do mês"}</span>${it.map(([n,v])=>`<span><b>${NUM.format(v)}</b> ${n}</span>`).join("")}<span><b>${pct(cm.comp)}</b> comparecimento</span>${ativoF&&botao?`<button class="btn" data-a="limpaf" style="margin-left:auto">Limpar filtros</button>`:""}</div>`;
+   const pi=porIntegrante(ls);const nomes=Object.keys(pi.g).filter(n=>EQUIPE.includes(n)||pi.g[n].ag);
+   h+=`<div class="conf conf2"><span class="conf-t">Por integrante</span>${nomes.map(n=>`<span><b>${esc(n)}</b> agendou ${NUM.format(pi.g[n].ag)} · ${NUM.format(pi.g[n].pres)} presença${pi.g[n].pres===1?"":"s"}</span>`).join("")}<span><b>${MKT} (MKT)</b> ${NUM.format(pi.midia)} presenças das mídias</span></div>`;
+   return h}
 function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(l)),dups=dupsDe(ls),f=S.f,live=isLive(mes),w=podeEscrever()&&live;
   const nRisc=todos.length-ls.length;
   let h=`<div class="card"><div class="row" style="justify-content:space-between">
@@ -387,11 +392,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     h+=`<div class="chips subchips" style="margin:-4px 0 12px 14px;padding-left:12px;border-left:2px solid var(--info)"><span class="small muted" style="align-self:center;font-weight:600">Resultado da consulta:</span>
      <button class="chip" data-a="res" data-v="" aria-pressed="${!f.res}">Todos os agendados <span class="c">${NUM.format(ag.length)}</span></button>
      ${[["Presença","Presença"],["Faltoso","Faltoso"],["Cancelado","Cancelado"],["__aguard","Agendado sem status"]].map(([v,n])=>`<button class="chip" data-a="res" data-v="${v}" aria-pressed="${f.res===v}">${v==="__aguard"?esc(n):`<span class="pill ${sitClass(v)}" style="padding:0 6px">${esc(n)}</span>`}<span class="c">${NUM.format(rc[v]||0)}</span></button>`).join("")}</div>`}
-  {const cm=met(vis,mes);const ativoF=f.res||f.cidade||f.canal||f.interesse||f.resp||f.busca||f.st||f.eDe||f.eAte||f.cDe||f.cAte||f.sit||f.pend||f.risc;
-   const it=[["Leads",cm.leads],["Agendados",cm.agend],["Presenças",cm.pres],["Faltas",cm.falt],["Cancelados",cm.canc],["Em contato",cm.emc],["Perdeu interesse",cm.perd],["Aguardando baixa",cm.aguard]];
-   h+=`<div class="conf" role="status" aria-live="polite"><span class="conf-t">Conferência ${ativoF?"do filtro":"do mês"}</span>${it.map(([n,v])=>`<span><b>${NUM.format(v)}</b> ${n}</span>`).join("")}<span><b>${pct(cm.comp)}</b> comparecimento</span>${ativoF?`<button class="btn" data-a="limpaf" style="margin-left:auto">Limpar filtros</button>`:""}</div>`;
-   const pi=porIntegrante(vis);const nomes=Object.keys(pi.g).filter(n=>EQUIPE.includes(n)||pi.g[n].ag);
-   h+=`<div class="conf conf2"><span class="conf-t">Por integrante</span>${nomes.map(n=>`<span><b>${esc(n)}</b> agendou ${NUM.format(pi.g[n].ag)} · ${NUM.format(pi.g[n].pres)} presença${pi.g[n].pres===1?"":"s"}</span>`).join("")}<span><b>${MKT} (MKT)</b> ${NUM.format(pi.midia)} presenças das mídias</span></div>`}
+  {const ativoF=f.res||f.cidade||f.canal||f.interesse||f.resp||f.busca||f.st||f.eDe||f.eAte||f.cDe||f.cAte||f.sit||f.pend||f.risc||f.dup;h+=vConfMes(vis,mes,ativoF,true)}
   if(!vis.length)h+=`<div class="empty">${live&&!S.liveReady[mes]&&S.db?"Carregando lançamentos…":"Nenhum lead com esses filtros."}</div>`;
   else{h+=`<div class="tablewrap"><table><thead><tr><th></th><th>Data</th><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Situação</th><th>Status</th><th>Consulta</th><th>COD / Observação</th><th>Responsável</th></tr></thead><tbody>`;
     for(const l of vis.slice(0,f.lim)){const rk=riscoDe(l);const a=rk?[]:alertas(l,dups);const so=solicDe(l.key);
@@ -403,7 +404,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
       <td class="small">${esc(respNome(l))}</td></tr>`}
     h+=`</tbody></table></div>`;
     if(vis.length>f.lim)h+=`<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-a="mais">Mostrar mais (${NUM.format(vis.length-f.lim)} restantes)</button></div>`}
-  h+=`<div class="legend" style="margin-top:10px"><span><i class="alert a-dup"></i>telefone repetido</span><span><i class="alert a-bad"></i>falta data / agendado sem data</span><span><i class="alert a-warn"></i>consulta passou sem baixa</span></div></div>`;
+  h+=`<div class="legend" style="margin-top:10px"><span><i style="background:var(--bad)"></i>duplicado no mês (linha vermelha)</span><span><i class="alert a-bad"></i>falta data / agendado sem data</span><span><i class="alert a-warn"></i>consulta passou sem baixa</span></div></div>`;
   return h}
 function novoLeadForm(){return `<div class="card"><h2>Novo lead <small>entra no mês da data de entrada</small></h2>
   <form id="fnovo" class="newlead" autocomplete="off">
@@ -424,7 +425,7 @@ function dupPreview(){const el=document.getElementById("n-data");const mes=((el&
   let h="";if(ms.length)h+=`<div class="banner warn" style="margin-top:10px"><div><b>Este número já foi lançado antes:</b> ${ms.map(l=>`${esc(nomeMes(l.mes))} (${esc(l.situacao||"sem situação")}${l.agendamento?", consulta "+esc(fmtData(l.agendamento)):""})`).join("; ")}.<br>Ao salvar, ${ms.length>1?"esses lançamentos serão riscados":"esse lançamento será riscado"} e o lead fica em ${esc(nomeMes(mes))} com a observação "Lead de ${esc(ms.map(l=>nomeMes(l.mes).toLowerCase()).join(", "))}".${ms.some(R.pres)?" <b>Atenção:</b> o lançamento antigo tem presença; ao riscar, essa presença deixa de contar naquele mês.":""}</div></div>`;
   if(mesmo.length)h+=`<div class="banner bad" style="margin-top:10px">Este número já está lançado em ${esc(nomeMes(mes))}. Abra o lead existente em vez de lançar de novo.</div>`;
   return h}
- 
+
 /* ---------------- gaveta de edição ---------------- */
 function acharLead(key){for(const k of [S.mes,...MESES]){const l=leadsDo(k).find(x=>x.key===key);if(l)return l}return null}
 function renderDrawer(){const root=document.getElementById("drawer-root");const l=S.sel&&acharLead(S.sel.key);
@@ -518,7 +519,7 @@ async function importarNovembro(){const b=document.getElementById("btn-imp"),pg=
       await new Promise(r=>setTimeout(r,60));}
     await lock.set({feito:true,quando:new Date().toISOString(),total:j.linhas.length});pg.textContent=" Pronto!";toast("Novembro importado.")}
   catch(e){b.disabled=false;pg.textContent=" Parou ("+(e&&e.code)+"). Clique de novo para continuar.";}}
- 
+
 /* ---------------- FUNIL ---------------- */
 function filtraF(ls){const f=S.ff;return ls.filter(l=>(!f.cidade||(f.cidade==="Sem cidade"?!l.cidade:l.cidade===f.cidade))&&(!f.canal||l.canal===f.canal)&&(!f.interesse||l.interesse===f.interesse)&&(!f.resp||l.resp===f.resp))}
 function tabela(cab,linhas,tot){return `<div class="tablewrap"><table><thead><tr>${cab.map((c,i)=>`<th${i?' class="n"':""}>${esc(c)}</th>`).join("")}</tr></thead><tbody>${linhas.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`).join("")}${tot?`<tr class="tot">${tot.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`:""}</tbody></table></div>`}
@@ -562,7 +563,7 @@ function vFunil(){const mes=S.mes,ls0=ativos(mes),ls=filtraF(ls0),m=met(ls,mes),
   h+=`<div class="card"><h2>Leads e agendados por dia de entrada</h2>${barras(dias,["var(--line)","var(--info)"],["Leads","Agendados"],{h:200})}</div>`;
   return h}
 function kpi(t,v,sub,cor,delta){return `<div class="kpi" style="--k:${cor}"><span>${esc(t)}</span><b>${v}</b><em>${sub||"&nbsp;"}${delta||""}</em></div>`}
- 
+
 /* ---------------- gráficos SVG ---------------- */
 function escala(max){if(max<=0)return [1,[0,1]];const p=Math.pow(10,Math.floor(Math.log10(max)));let st=[1,2,2.5,5,10].map(x=>x*p).find(s=>max/s<=5);const top=Math.ceil(max/st)*st;const ticks=[];for(let v=0;v<=top+1e-9;v+=st)ticks.push(v);return [top,ticks]}
 function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(o.bw||26)),H=o.h||220,pl=o.money?70:40,pb=26,pt=10,pr=10;
@@ -573,7 +574,7 @@ function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(
   dados.forEach((d,i)=>{const x0=pl+gw*i+(gw-bw*n)/2;d.v.forEach((v,j)=>{if(v>0)s+=`<rect x="${x0+j*bw}" y="${y(v)}" width="${bw-2}" height="${Math.max(0,y(0)-y(v))}" rx="2" fill="${cores[j]}"><title>${esc(d.label)} · ${esc(nomes[j])}: ${fmt(v)}</title></rect>`});
     s+=`<text x="${pl+gw*i+gw/2}" y="${H-8}" text-anchor="middle">${esc(d.label)}</text>`});
   s+=`</svg>`;return `<div style="overflow-x:auto">${s}</div><div class="legend">${nomes.map((nm,j)=>`<span><i style="background:${cores[j]}"></i>${esc(nm)}</span>`).join("")}</div>`}
- 
+
 /* ---------------- ADMINISTRATIVO ---------------- */
 function admMes(k){const a=S.adm[k]||{};const inv=a.invest||{};const val=a.valores||{};
   const investido=["principal","paralela","outros","semdiv"].reduce((s,c)=>s+(+inv[c]||0),0);
@@ -601,6 +602,7 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
     if(S.isOwner)h+=vAcesso();
     return h}
   // Conferência de metas
+  h+=`<div class="card"><h2 style="margin-bottom:10px">Conferência do mês · ${esc(nomeMes(S.mes))} <small>todos os leads do mês, sem filtros</small></h2>${vConfMes(ativos(S.mes),S.mes,false,false)}</div>`;
   h+=vMetas(S.mes);
   {const k=S.mes;
     const ls=ativos(k).filter(R.pres);const val=(S.adm[k]&&S.adm[k].valores)||{};
@@ -612,14 +614,14 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
        <td class="n"><input class="money" id="v-${esc(l.key)}" inputmode="decimal" data-a="valor" data-k="${esc(l.key)}" value="${val[l.key]!=null?String(val[l.key]).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td></tr>`).join("")}
      </tbody></table></div>`:`<div class="empty">Nenhum paciente com presença ${S.adm_soSemValor?"sem valor ":""}neste mês.</div>`}</div>`}
   return h}
- 
+
 /* ---- Responsáveis pelos agendamentos: importar da planilha de metas do comercial ---- */
 const ABAS_RESP=[[/^VINI(CIUS)?$/,"Vinícius"],[/^SAMI|^SAMARA$/,"Samara"],[/^BER(NARDO)?$/,"Bernardo"]];
 function abaParaNome(t){const n=semAc(String(t||"")).toUpperCase().trim();for(const [re,nome] of ABAS_RESP)if(re.test(n))return nome;return null}
 function mesDoArquivo(nome){const n=semAc(nome).toLowerCase();for(let i=0;i<12;i++)if(n.includes(semAc(MES_NOME[i]).toLowerCase())){const k="2026-"+String(i+1).padStart(2,"0");if(MESES.includes(k))return k}
   const m=n.match(/^(\d{1,2})[.\s_-]/);if(m){const k="2026-"+String(+m[1]).padStart(2,"0");if(MESES.includes(k))return k}return null}
 const codsDe=x=>new Set((String(x||"").match(/(?<!\d)\d{2,7}(?!\d)/g)||[]).map(c=>c.replace(/^0+/,"")).filter(Boolean));
- 
+
 // datas da planilha de metas: texto dd/mm/aaaa; células de data vieram com dia e mês trocados (Excel em inglês)
 function dataPlan(x){const p2=n=>String(n).padStart(2,"0");
   if(typeof x==="number"&&x>20000&&x<80000){const d=XLSX.SSF.parse_date_code(x);if(!d)return "";return d.d<=12?`${d.y}-${p2(d.d)}-${p2(d.m)}`:`${d.y}-${p2(d.m)}-${p2(d.d)}`}
@@ -747,7 +749,7 @@ function barraExport(mes){return `<div class="row" style="gap:8px;align-items:ce
   <button class="btn" data-a="exp" data-v="rx">Resultado do mês · Excel</button><button class="btn" data-a="exp" data-v="rp">Resultado do mês · PDF</button></div>`}
 /* ---- INÍCIO ---- */
 function dlt(a,b,inv){if(!b)return "";const d=a/b-1;if(!isFinite(d))return "";const bom=inv?d<0:d>0;return `<span class="${bom?"pos":"neg"}">${d>=0?"▲":"▼"} ${pct(Math.abs(d))}</span>`}
- 
+
 /* ---- Ranking da equipe (aba Início) ---- */
 const diaLocal=d=>{const x=new Date(d);return isNaN(x)?"":x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
 const somaDias=(iso,n)=>diaLocal(new Date(new Date(iso+"T12:00").getTime()+n*864e5));
@@ -896,7 +898,7 @@ function calcMeta(l){const a=S.adm[l.mes]||{};const valor=+((a.valores||{})[l.ke
   const eleg=valor>=META.limpezaMin;const limp=mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
   const total=META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag:agendadorNome(l),midia:isMidia(l)}}
 const reais=v=>BRL.format(v);
- 
+
 /* ---- filtro da conferência de metas: colaborador + período ---- */
 function presencasPeriodo(ini,fim){const out=[];for(const m of MESES)for(const l of ativos(m)){if(!R.pres(l))continue;const d=l.agendamento||l.data||"";if(d>=ini&&d<=fim)out.push(l)}return out}
 function periodoMetas(K){const f=S.mf||{},p=f.p||"mes";
@@ -975,7 +977,7 @@ function numBR(s){s=String(s).trim().replace(/[R$\s]/g,"");if(!s)return null;if(
 async function salvarAdm(k,mut){const ref=S.db.doc("adm/"+k);
   return serial("adm/"+k,async()=>{const novo=JSON.parse(JSON.stringify(S.adm[k]||{}));novo.invest=novo.invest||{};novo.valores=novo.valores||{};novo.metas=novo.metas||{};
     mut(novo);S.adm[k]=novo;await ref.set(novo)})}
- 
+
 /* ---------------- eventos ---------------- */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a;
   if(a==="sit"){S.f.sit=t.dataset.v;S.f.res="";S.f.pend=false;S.f.risc=false;S.f.lim=150;render()}
@@ -1090,7 +1092,7 @@ function vChaveRobo(){return `<div class="row" style="margin-top:14px;padding-to
   <label class="f" for="robo-tok" style="flex:1;min-width:240px">Chave do GitHub para o botão do robô<input id="robo-tok" type="password" autocomplete="off" placeholder="${S.roboTemChave?"Chave cadastrada · cole outra para trocar":"Cole aqui a chave (github_pat_...)"}"></label>
   <button class="btn" data-a="robotok">Salvar chave</button></div>
   <div class="small muted" style="margin-top:4px">Fica guardada no banco e só a gerência consegue ler. Nunca é mostrada na tela.</div>`}
- 
+
 /* ---- Robô de conferência de presenças (usado pelo Claude pelo navegador; só gerência) ---- */
 window.__robo={
   pendentes(ate){ate=ate||hoje;if(!S.isAdm)throw new Error("Só a gerência pode usar o robô.");
@@ -1114,7 +1116,7 @@ window.__robo={
       catch(e){res.pulados.push({id:it.id,motivo:"erro "+((e&&e.code)||e)})}}
     toast("Robô: "+res.gravados+" status gravados"+(res.pulados.length?", "+res.pulados.length+" pulados":"")+".");return res}
 };
- 
+
 window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
