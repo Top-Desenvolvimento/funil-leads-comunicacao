@@ -1,4 +1,4 @@
-L
+
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -141,6 +141,7 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
 @media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(30px);opacity:.6}}}
 .bar-h.rk{grid-template-columns:150px 1fr 96px}.rk2{display:grid;grid-template-columns:1fr 1fr;gap:24px}@media(max-width:760px){.rk2{grid-template-columns:1fr}}
 .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}.subtab{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.subtab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}.subtab:hover{border-color:var(--accent)}
+tr.dup td{background:var(--bad-soft)!important}tr.dup td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.tag.dupt{background:var(--bad);color:#fff;font-weight:700;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -229,11 +230,16 @@ function met(ls,mes){const fim=fimMes(mes),ini=mes+"-01";const m={leads:ls.lengt
   for(const l of ls){if(R.agend(l)){m.agend++;if(l.agendamento>=ini&&l.agendamento<=fim)m.ag_mes++;else if(l.agendamento>fim)m.ag_seg++}
     if(R.pres(l))m.pres++;if(R.falt(l))m.falt++;if(R.canc(l))m.canc++;if(R.emc(l))m.emc++;if(R.perd(l))m.perd++;if(R.aguard(l))m.aguard++;if(R.fech(l))m.fech++}
   m.convAg=m.agend/m.leads;m.comp=m.pres/(m.pres+m.falt);m.convPres=m.pres/m.leads;return m}
-function alertas(l,dups){const a=[];if(l.contato&&dups[l.contato]>1)a.push(["a-dup","Telefone repetido no mês"]);
+function alertas(l,dups){const a=[];if(dups.set.has(l.key))a.push(["a-dup","Duplicado: mesmo telefone ou COD de outro lead do mês"]);
   if(!l.data)a.push(["a-bad","Sem data de entrada"]);
   if(l.situacao==="Agendado"&&!l.agendamento)a.push(["a-bad","Agendado sem data de consulta"]);
   if(l.agendamento&&l.agendamento<hoje&&!l.status&&l.situacao==="Agendado")a.push(["a-warn","Consulta já passou: falta dar baixa"]);return a}
-function dupsDe(ls){const d={};for(const l of ls)if(l.contato)d[l.contato]=(d[l.contato]||0)+1;return d}
+// duplicidade no mês: mesmo telefone (8 últimos dígitos) ou mesmo COD. O 1º lançado fica normal; os outros ficam marcados.
+function dupsDe(ls){const set=new Set(),orig={},visto={};
+  const ord=ls.slice().sort((a,b)=>(a.data||"").localeCompare(b.data||"")||(a.criado||"").localeCompare(b.criado||"")||String(a.key).localeCompare(String(b.key)));
+  for(const l of ord){const t=tel8(l.contato);const cds=[...codsDe(l.cod||(l.live?"":l.obs))];const ks=[t&&"t"+t,...cds.map(c=>"c"+c)].filter(Boolean);
+    const ja=ks.find(k=>visto[k]);if(ja){set.add(l.key);orig[l.key]=visto[ja]}ks.forEach(k=>{if(!visto[k])visto[k]=l})}
+  return {set,orig}}
 const riscoDe=l=>l.live?l.riscado:((S.risc[l.mes]||{})[l.key]||null);
 const ativos=mes=>leadsDo(mes).filter(l=>!riscoDe(l));
 function acharPorTel(tel,excetoMes){const k=tel8(tel);if(!k)return [];const out=[];
@@ -353,7 +359,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     (!f.eDe||(l.data&&l.data>=f.eDe))&&(!f.eAte||(l.data&&l.data<=f.eAte))&&(!f.cDe||(l.agendamento&&l.agendamento>=f.cDe))&&(!f.cAte||(l.agendamento&&l.agendamento<=f.cAte)));
   const cont={};for(const l of base)cont[l.situacao||"(vazio)"]=(cont[l.situacao||"(vazio)"]||0)+1;
   const pend=base.filter(l=>alertas(l,dups).length);
-  let vis=base.filter(l=>(!f.sit||(f.sit==="Agendado"?noGrupoAg(l):(l.situacao||"(vazio)")===f.sit))&&(!f.res||(noGrupoAg(l)&&resAg(l)===f.res))&&(!f.pend||alertas(l,dups).length));
+  let vis=base.filter(l=>(!f.sit||(f.sit==="Agendado"?noGrupoAg(l):(l.situacao||"(vazio)")===f.sit))&&(!f.res||(noGrupoAg(l)&&resAg(l)===f.res))&&(!f.pend||alertas(l,dups).length)&&(!f.dup||dups.set.has(l.key)||Object.values(dups.orig).includes(l)));
   vis=vis.slice().sort((a,b)=>(b.data||"").localeCompare(a.data||"")||((b.criado||"").localeCompare(a.criado||"")));
   const resps=[...new Set(ls.map(l=>l.resp).filter(Boolean))];
   h+=`<div class="card"><h2>Leads de ${nomeMes(mes)} <small>clique em um lead para atualizar o funil</small></h2>
@@ -369,6 +375,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     <label class="f" for="fca2">até<input type="date" id="fca2" data-a="f" data-k="cAte" value="${esc(f.cAte)}"></label>
     <label class="f" for="fre">Responsável<select id="fre" data-a="f" data-k="resp"><option value="">Todos</option>${live?`<option value="__eu"${f.resp==="__eu"?" selected":""}>Meus leads</option>`:""}${[...new Set([...EQUIPE,...ls.map(respNome).filter(Boolean)])].map(r=>`<option value="${esc(r)}"${f.resp===r?" selected":""}>${esc(r)}</option>`).join("")}</select></label>
   </div>
+  ${dups.set.size?`<div class="banner bad" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>${NUM.format(dups.set.size)} lead${dups.set.size>1?"s":""} em duplicidade</b> neste mês (mesmo telefone ou COD). ${dups.set.size>1?"Estão":"Está"} em vermelho com a etiqueta DUPLICADO para verificar.</span><button class="btn" data-a="dupf">${f.dup?"Mostrar todos":"Ver só as duplicidades"}</button></div>`:""}
   <div class="chips" style="margin-bottom:12px">
     <button class="chip" data-a="sit" data-v="" aria-pressed="${!f.sit&&!f.pend&&!f.risc}">Todos <span class="c">${NUM.format(f.risc?ls.length:base.length)}</span></button>
     ${["Em contato","Agendado","Perdeu interesse"].map(s=>{const n=s==="Agendado"?base.filter(noGrupoAg).length:(cont[s]||0);return `<button class="chip" data-a="sit" data-v="${esc(s)}" aria-pressed="${f.sit===s}"><span class="pill ${sitClass(s)}" style="padding:0 6px">${esc(s)}</span><span class="c">${NUM.format(n)}</span></button>`}).join("")}
@@ -388,7 +395,8 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
   if(!vis.length)h+=`<div class="empty">${live&&!S.liveReady[mes]&&S.db?"Carregando lançamentos…":"Nenhum lead com esses filtros."}</div>`;
   else{h+=`<div class="tablewrap"><table><thead><tr><th></th><th>Data</th><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Situação</th><th>Status</th><th>Consulta</th><th>COD / Observação</th><th>Responsável</th></tr></thead><tbody>`;
     for(const l of vis.slice(0,f.lim)){const rk=riscoDe(l);const a=rk?[]:alertas(l,dups);const so=solicDe(l.key);
-      h+=`<tr class="click${rk?" risc":""}" tabindex="0" data-a="abrir" data-k="${esc(l.key)}"><td title="${esc(a.map(x=>x[1]).join(" · "))}">${a.map(x=>`<span class="alert ${x[0]}"></span>`).join("")}${rk?`<span class="tag">→ ${esc(nomeMes(rk.para).slice(0,3))}</span>`:""}${so?`<span class="tag bad" title="Exclusão solicitada">excl.?</span>`:""}${l.anteriores&&l.anteriores.length?`<span class="tag info" title="Lead que já veio em outro mês">retorno</span>`:""}</td>
+      const dp=!rk&&dups.set.has(l.key)?dups.orig[l.key]:null;
+      h+=`<tr class="click${rk?" risc":""}${dp?" dup":""}" tabindex="0" data-a="abrir" data-k="${esc(l.key)}"><td title="${esc(a.map(x=>x[1]).join(" · "))}">${dp?`<span class="tag dupt" title="Mesmo telefone ou COD do lead de ${esc(fmtData(dp.data))}">DUPLICADO · verificar</span> `:""}${a.filter(x=>x[0]!=="a-dup").map(x=>`<span class="alert ${x[0]}"></span>`).join("")}${rk?`<span class="tag">→ ${esc(nomeMes(rk.para).slice(0,3))}</span>`:""}${so?`<span class="tag bad" title="Exclusão solicitada">excl.?</span>`:""}${l.anteriores&&l.anteriores.length?`<span class="tag info" title="Lead que já veio em outro mês">retorno</span>`:""}</td>
       <td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td><td>${esc(l.canal)}</td>
       <td>${l.situacao?`<span class="pill ${sitClass(l.situacao)}">${esc(l.situacao)}</span>`:""}</td><td>${l.status?`<span class="pill ${sitClass(l.status)}">${esc(l.status)}</span>`:""}</td>
       <td class="n">${esc(fmtData(l.agendamento).slice(0,5))}</td><td class="small" style="max-width:260px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td>
@@ -911,35 +919,40 @@ function vFiltroMetas(K,ini,fim,rot,col,cs){const f=S.mf||{},p=f.p||"mes";
   return h+`<div class="small muted" style="margin-top:10px">As presenças contam pela data da consulta. O valor de cada paciente e a limpeza continuam sendo lançados na tabela de conferência abaixo.</div></div>`}
 function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col)||"";
   const psAll=presencasPeriodo(ini,fim).sort((a,b)=>(a.agendamento||"").localeCompare(b.agendamento||""));const csAll=psAll.map(l=>[l,calcMeta(l)]);
-  const cs=col==="Juliana"?csAll.filter(([,c])=>c.midia):col==="Sem responsável"?csAll.filter(([,c])=>!c.ag):col?csAll.filter(([,c])=>c.ag===col):csAll;const ps=cs.map(([l])=>l);
-  const por={};for(const [l,c] of cs){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0,verif:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total;if(c.verificar)por[k].verif++}
-  const verif=cs.filter(([,c])=>c.verificar).length;
+  // mesmo paciente (telefone ou COD) com mais de uma presença no período: conta uma vez só
+  marcarRepetidos(csAll);
+  const cs=col==="Juliana"?csAll.filter(([,c])=>c.midia):col==="Sem responsável"?csAll.filter(([,c])=>!c.ag):col?csAll.filter(([,c])=>c.ag===col):csAll;const ps=cs.map(([l])=>l);const csAll0=csAll;const nDup=cs.filter(([,c])=>c.dup).length;const contam=cs.filter(([,c])=>!c.dup);
+  const por={};for(const [l,c] of contam){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0,verif:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total;if(c.verificar)por[k].verif++}
+  const verif=contam.filter(([,c])=>c.verificar).length;
   const tot=Object.values(por).reduce((a,b)=>({pres:a.pres+b.pres,limp:a.limp+b.limp,proc:a.proc+b.proc,total:a.total+b.total}),{pres:0,limp:0,proc:0,total:0});
   const linhas=Object.entries(por).sort((a,b)=>b[1].total-a[1].total).map(([id,v])=>[id==="__sem"?'<span class="muted">Sem responsável</span>':esc(id),NUM.format(v.pres),reais(v.pres*META.presenca),NUM.format(v.limp),reais(v.limp*META.limpeza),NUM.format(v.proc),reais(v.proc*META.proc),`<b>${reais(v.total)}</b>`,v.verif?`<span class="tag">${v.verif} a verificar</span>`:""]);
-  const juli=cs.filter(([,c])=>c.midia);const porCanal={};for(const [l] of juli){const k=l.canal==="Outros"&&l.fonte?l.fonte:l.canal;porCanal[k]=(porCanal[k]||0)+1}
-  let h=vFiltroMetas(K,ini,fim,rot,col,cs);
+  const juli=contam.filter(([,c])=>c.midia);const porCanal={};for(const [l] of juli){const k=l.canal==="Outros"&&l.fonte?l.fonte:l.canal;porCanal[k]=(porCanal[k]||0)+1}
+  let h=vFiltroMetas(K,ini,fim,rot,col,contam);
+  if(nDup)h+=`<div class="banner warn">${NUM.format(nDup)} presença${nDup>1?"s":""} de paciente repetido (mesmo telefone ou COD) no período ${nDup>1?"não contam":"não conta"} na meta. Na tabela de conferência ${nDup>1?"elas aparecem":"ela aparece"} com a etiqueta <b>repetido</b>.</div>`;
   if(col!=="Juliana")h+=`<div class="card"><h2>Metas da equipe de comunicação · presenças com consulta em ${esc(rot)}${col?" · "+esc(col):""} <small>R$ ${META.presenca} por presença · + R$ ${META.limpeza} por limpeza confirmada · R$ ${META.proc} por procedimento pago no mês</small></h2>
    ${verif?`<div class="banner warn" style="margin-bottom:12px"><b>Lembrete:</b> ${verif} presença${verif>1?"s":""} com valor a partir de ${reais(META.limpezaMin)}: verifique se foi limpeza e marque Sim ou Não na tabela abaixo.</div>`:""}
    ${linhas.length?tabela(["Colaborador (quem agendou)","Presenças","R$ presenças","Limpezas","R$ limpezas","Proced. pagos","R$ proced.","Total da meta",""],linhas,["TOTAL",NUM.format(tot.pres),reais(tot.pres*META.presenca),NUM.format(tot.limp),reais(tot.limp*META.limpeza),NUM.format(tot.proc),reais(tot.proc*META.proc),`<b>${reais(tot.total)}</b>`,""]):`<div class="empty">Nenhuma presença com consulta em ${esc(rot)}${col?" para "+esc(col):""}.</div>`}
    ${linhas.length?`<div class="row" style="margin-top:10px"><button class="btn" data-a="copiarmetas">Copiar relatório de metas</button><span class="small muted">Cole no Excel, Sheets ou WhatsApp.</span></div>`:""}
   </div>`;
   if(!col||col==="Juliana")h+=`<div class="card" style="border-left:4px solid var(--accent)"><h2>Meta da Juliana · marketing <small>R$ ${META.juli} por presença vinda das mídias (Principal, Paralela, Site, Empresas, Google, YouTube, TikTok, Pinterest, Instagram, Facebook, WhatsApp dos anúncios e Anúncio Juli)</small></h2>
-   <div class="kpis">${kpi("Presenças de mídia",NUM.format(juli.length),"de "+NUM.format(csAll.length)+" presenças no período","var(--accent)")}${kpi("Meta da Juliana",reais(juli.length*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>
+   <div class="kpis">${kpi("Presenças de mídia",NUM.format(juli.length),"de "+NUM.format(csAll.filter(([,c])=>!c.dup).length)+" presenças no período","var(--accent)")}${kpi("Meta da Juliana",reais(juli.length*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>
    ${juli.length?`<div class="small muted" style="margin-top:10px">Por origem: ${Object.entries(porCanal).sort((a,b)=>b[1]-a[1]).map(([k,v])=>esc(k)+" "+v).join(" · ")}</div>`:""}</div>`;
   if(ps.length){h+=`<div class="card"><h2>Conferência das presenças · ${esc(rot)}${col?" · "+esc(col):""} <small>${ps.length} presenças · valor, limpeza e procedimentos são lançados aqui pelo gestor</small></h2>
    <div class="row" style="margin-bottom:10px"><button class="chip" data-a="soverif" aria-pressed="${!!S.soVerif}">Só limpezas a verificar</button></div>
    <div class="tablewrap"><table><thead><tr><th>Consulta</th><th>Contato</th><th>COD / Obs.</th><th>Cidade</th><th>Interesse</th><th>Origem</th><th>Agendou</th><th class="n">Valor (R$)</th><th>Limpeza?</th><th class="n">Proced. pagos</th><th class="n">Meta</th></tr></thead><tbody>
    ${cs.filter(([,c])=>!S.soVerif||c.verificar).map(([l,c])=>`<tr><td class="n">${esc(fmtData(l.agendamento||l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td class="small" style="max-width:200px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td>
-     <td class="small">${esc(l.canal==="Outros"&&l.fonte?l.fonte:l.canal)}${c.midia?' <span class="tag ok">mídia</span>':""}</td><td class="small">${c.ag?esc(c.ag):'<span class="muted">sem responsável</span>'}</td>
+     <td class="small">${esc(l.canal==="Outros"&&l.fonte?l.fonte:l.canal)}${c.midia?' <span class="tag ok">mídia</span>':""}</td><td class="small">${c.ag?esc(c.ag):'<span class="muted">sem responsável</span>'}${c.dup?' <span class="tag warn" title="Mesmo telefone ou COD de outra presença do período: não conta na meta">repetido</span>':""}</td>
      <td class="n"><input class="money" id="mv-${esc(l.key)}" inputmode="decimal" data-a="mvalor" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.valor?String(c.valor).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td>
      <td><select id="ml-${esc(l.key)}" data-a="mlimp" data-k="${esc(l.key)}" data-m="${l.mes}" aria-label="Foi limpeza?">${opts(["Sim","Não"],c.limpRes,c.eleg?"Verificar":"–")}</select>${c.verificar?' <span class="tag">verificar</span>':""}</td>
      <td class="n"><input class="money" style="width:70px" id="mp-${esc(l.key)}" inputmode="numeric" data-a="mproc" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.proc||""}" placeholder="0" aria-label="Procedimentos pagos de ${esc(l.contato)}"></td>
-     <td class="n"><b>${reais(c.total)}</b></td></tr>`).join("")}
+     <td class="n">${c.dup?'<span class="muted">–</span>':`<b>${reais(c.total)}</b>`}</td></tr>`).join("")}
    </tbody></table></div><p class="small muted" style="margin:10px 0 0">A presença conta no mês da consulta. A meta vai para quem mudou o lead para Agendado no app; leads da planilha antiga aparecem como "planilha".</p></div>`}
   return h}
-function textoMetas(K){const cs=presencasDoMes(K).map(l=>[l,calcMeta(l)]);const por={};
+function marcarRepetidos(cs){const visto=new Set();for(const [l,c] of cs){const t=tel8(l.contato);const cd=[...codsDe(l.cod||(l.live?"":l.obs))][0];const ks=[t&&"t"+t,cd&&"c"+cd].filter(Boolean);
+    if(ks.some(k=>visto.has(k))){c.dup=true;c.total=0;c.verificar=false}ks.forEach(k=>visto.add(k))}return cs}
+function textoMetas(K){const [ini,fim,rot]=periodoMetas(K);const cs=marcarRepetidos(presencasPeriodo(ini,fim).sort((a,b)=>(a.agendamento||"").localeCompare(b.agendamento||"")).map(l=>[l,calcMeta(l)])).filter(([,c])=>!c.dup);const por={};
   for(const [l,c] of cs){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total}
-  const f=v=>v.toFixed(2).replace(".",",");let t="Metas "+nomeMes(K)+"\nColaborador\tPresenças\tLimpezas\tProced. pagos\tTotal (R$)\n";
+  const f=v=>v.toFixed(2).replace(".",",");let t="Metas "+rot+"\nColaborador\tPresenças\tLimpezas\tProced. pagos\tTotal (R$)\n";
   for(const [id,v] of Object.entries(por))t+=(id==="__sem"?"Sem responsável":id)+"\t"+v.pres+"\t"+v.limp+"\t"+v.proc+"\t"+f(v.total)+"\n";
   const j=cs.filter(([,c])=>c.midia).length;t+="\nJuliana (MKT)\t"+j+" presenças de mídia\t\t\t"+f(j*META.juli)+"\n";return t}
 /* ---- acesso do gestor ---- */
@@ -971,7 +984,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="irpend"){S.mes=mesAtual;Object.assign(S.f,{res:"",sit:"",pend:true,risc:false})}
   else if(a==="exp"){const b=t;b.disabled=true;const old=b.textContent;b.textContent="Gerando…";exportar(t.dataset.v,S.mes).finally(()=>{b.disabled=false;b.textContent=old})}
   else if(a==="backup"){baixarBackup()}
-  else if(a==="limpaf"){Object.assign(S.f,{res:"",sit:"",cidade:"",canal:"",interesse:"",resp:"",busca:"",pend:false,risc:false,st:"",eDe:"",eAte:"",cDe:"",cAte:"",lim:150});render()}
+  else if(a==="limpaf"){Object.assign(S.f,{res:"",sit:"",cidade:"",canal:"",interesse:"",resp:"",busca:"",pend:false,risc:false,dup:false,st:"",eDe:"",eAte:"",cDe:"",cAte:"",lim:150});render()}
   else if(a==="riscf"){S.f.risc=!S.f.risc;S.f.sit="";S.f.pend=false;render()}
   else if(a==="verlead"){S.sel={key:t.dataset.k};renderDrawer()}
   else if(a==="aprovexc"){if(t.dataset.ok){decidirExc(t.dataset.k,true)}else{t.dataset.ok="1";t.textContent="Confirmar exclusão"}}
@@ -992,6 +1005,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="admmodo"){S.adm_mode=t.dataset.v;render()}
   else if(a==="finmodo"){S.fin_mode=t.dataset.v;render()}
   else if(a==="roborun"){rodarRobo()}
+  else if(a==="dupf"){S.f.dup=!S.f.dup;S.f.lim=150;render()}
   else if(a==="mflimpar"){S.mf={};render()}
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
