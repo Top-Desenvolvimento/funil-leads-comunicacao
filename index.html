@@ -1,4 +1,4 @@
-
+L
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -885,7 +885,7 @@ async function decidirExc(sid,aprova){const x=S.solic.find(y=>y.sid===sid);if(!x
 /* ---- metas ---- */
 function presencasDoMes(K){const out=[];for(const m of MESES)for(const l of ativos(m))if(R.pres(l)&&mesConsulta(l)===K)out.push(l);return out}
 function calcMeta(l){const a=S.adm[l.mes]||{};const valor=+((a.valores||{})[l.key])||0;const mt=(a.metas||{})[l.key]||{};
-  const eleg=valor>=META.limpezaMin;const limp=eleg&&mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
+  const eleg=valor>=META.limpezaMin;const limp=mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
   const total=META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag:agendadorNome(l),midia:isMidia(l)}}
 const reais=v=>BRL.format(v);
  
@@ -932,7 +932,7 @@ function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col
    ${cs.filter(([,c])=>!S.soVerif||c.verificar).map(([l,c])=>`<tr><td class="n">${esc(fmtData(l.agendamento||l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td class="small" style="max-width:200px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td>
      <td class="small">${esc(l.canal==="Outros"&&l.fonte?l.fonte:l.canal)}${c.midia?' <span class="tag ok">mídia</span>':""}</td><td class="small">${c.ag?esc(c.ag):'<span class="muted">sem responsável</span>'}</td>
      <td class="n"><input class="money" id="mv-${esc(l.key)}" inputmode="decimal" data-a="mvalor" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.valor?String(c.valor).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td>
-     <td>${c.eleg?`<select id="ml-${esc(l.key)}" data-a="mlimp" data-k="${esc(l.key)}" data-m="${l.mes}" aria-label="Foi limpeza?">${opts(["Sim","Não"],c.limpRes,"Verificar")}</select>${c.verificar?' <span class="tag">verificar</span>':""}`:'<span class="muted small">–</span>'}</td>
+     <td><select id="ml-${esc(l.key)}" data-a="mlimp" data-k="${esc(l.key)}" data-m="${l.mes}" aria-label="Foi limpeza?">${opts(["Sim","Não"],c.limpRes,c.eleg?"Verificar":"–")}</select>${c.verificar?' <span class="tag">verificar</span>':""}</td>
      <td class="n"><input class="money" style="width:70px" id="mp-${esc(l.key)}" inputmode="numeric" data-a="mproc" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.proc||""}" placeholder="0" aria-label="Procedimentos pagos de ${esc(l.contato)}"></td>
      <td class="n"><b>${reais(c.total)}</b></td></tr>`).join("")}
    </tbody></table></div><p class="small muted" style="margin:10px 0 0">A presença conta no mês da consulta. A meta vai para quem mudou o lead para Agendado no app; leads da planilha antiga aparecem como "planilha".</p></div>`}
@@ -1105,6 +1105,4 @@ window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
 </html>
- 
- 
  
