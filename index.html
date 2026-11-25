@@ -1,4 +1,5 @@
-!DOCTYPE html>
+
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -163,7 +164,7 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
 "use strict";
 /* ---------------- constantes ---------------- */
 const OPC = {
-  canal:["Principal","Paralela","Site","Empresas","Google","YouTube","TikTok","Pinterest","Instagram","Facebook","WhatsApp (anúncios)","Indicação","Disparo","Outros"],
+  canal:["Principal","Paralela","Site","Empresas","Google","YouTube","TikTok","Pinterest","Instagram","Facebook","WhatsApp (anúncios)","Orgânico","Indicação","Disparo","Outros"],
   cidade:["Caxias","Farroupilha","Flores da Cunha","Bento Gonçalves","Veranópolis","Encantado","Soledade","Fora da área","Outra cidade"],
   interesse:["Aparelho","Implante","Facetas","Clínico geral"],
   situacao:["Em contato","Agendado","Presença","Faltoso","Cancelado","Perdeu interesse"],
@@ -195,14 +196,14 @@ const MESES=listaMeses();
 const isLive=k=>k>ULTIMO_ARQUIVADO;
 const trimestre=k=>Math.ceil(+k.slice(5,7)/3);
 const sitClass=s=>({"Em contato":"p-contato","Agendado":"p-agendado","Presença":"p-presenca","Faltoso":"p-faltoso","Cancelado":"p-cancelado","Perdeu interesse":"p-perdeu"}[s]||"p-contato");
-
+ 
 /* ---------------- estado ---------------- */
 const S={resp:{},view:"inicio",mes:MESES.includes(mesAtual)?mesAtual:MESES[MESES.length-1],hist:null,live:{},liveReady:{},adm:{},admReady:false,
   db:null,user:null,me:null,isOwner:false,canWrite:null,readOnlyForced:false,names:{},
   f:{sit:"",cidade:"",canal:"",interesse:"",resp:"",busca:"",pend:false,lim:150,st:"",eDe:"",eAte:"",cDe:"",cAte:""},
   ff:{cidade:"",canal:"",interesse:"",resp:""}, adm_mode:"mes", adm_tri:Math.ceil((+mesAtual.slice(5,7))/3), adm_soSemValor:false,
   stale:false, err:"", migr:null, risc:{}, solic:[], cfg:{gestores:[]}, isAdm:false, novoTel:"", pessoas:null, pub:{}, fin_mode:"mes"};
-
+ 
 /* ---------------- dados ---------------- */
 function fromHist(mes,arr,i){return {key:"h-"+mes+"-"+i,mes,live:false,canal:arr[0],data:arr[1],contato:arr[2],cidade:arr[3],interesse:arr[4],
   situacao:arr[5],status:arr[6],cod:"",obs:arr[7],agendamento:arr[8],fechou:arr[9],fonte:arr[10],resp:null,notas:[]}}
@@ -244,6 +245,7 @@ const noGrupoAg=l=>AG_GRUPO.includes(l.situacao);
 const resAg=l=>R.pres(l)?"Presença":R.falt(l)?"Faltoso":R.canc(l)?"Cancelado":"__aguard";
 function nomeEquipe(id){if(!id)return "";const n=S.names[id]||"";const f=semAc(n).split(/\s+/)[0];return EQUIPE.find(x=>semAc(x)===f)||n||""}
 const meuNome=()=>{const n=nomeEquipe(S.me);return EQUIPE.includes(n)?n:""};
+const respNome=l=>agendadorNome(l)||(l.resp?nomeEquipe(l.resp)||nome(l.resp):"")||"";
 const agendadorNome=l=>l.agPor||(!l.live&&S.resp&&(S.resp[l.mes]||{})[l.key])||(l.live?nomeEquipe(quemAgendou(l)):"")||"";
 function porIntegrante(ls){const g={};for(const n of EQUIPE)g[n]={ag:0,pres:0,falt:0};
   for(const l of ls){if(!(noGrupoAg(l)||R.agend(l)))continue;const n=agendadorNome(l)||"Sem responsável";g[n]=g[n]||{ag:0,pres:0,falt:0};g[n].ag++;if(R.pres(l))g[n].pres++;if(R.falt(l))g[n].falt++}
@@ -251,7 +253,7 @@ function porIntegrante(ls){const g={};for(const n of EQUIPE)g[n]={ag:0,pres:0,fa
 const solicDe=key=>S.solic.find(x=>x.key===key&&x.status==="pendente");
 const nome=id=>id?(S.names[id]||"Alguém da equipe"):"Importado da planilha";
 const iniciais=n=>n.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join("")||"?";
-
+ 
 /* ---------------- plataforma ---------------- */
 let unsub={};
 async function boot(){
@@ -306,7 +308,7 @@ function renderWho(){const w=document.getElementById("who");const n=S.me?(S.name
 const podeEscrever=()=>!!S.db&&S.canWrite!==false&&!S.readOnlyForced;
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const filas={};function serial(key,fn){const p=(filas[key]||Promise.resolve()).then(fn,fn);filas[key]=p.catch(()=>{});return p}
-
+ 
 /* ---------------- render geral ---------------- */
 function rota(){const h=location.hash.replace("#","");S.view=["inicio","lancamentos","funil","administrativo"].includes(h)?h:"inicio";
   for(const a of document.querySelectorAll("#tabs a"))if(a.dataset.v===S.view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");
@@ -329,7 +331,7 @@ function render(){const m=document.getElementById("main");
 }
 const opts=(arr,v,vazio)=>(vazio!=null?`<option value="">${esc(vazio)}</option>`:"")+arr.map(o=>`<option${o===v?" selected":""}>${esc(o)}</option>`).join("");
 const mesOpts=v=>MESES.map(k=>`<option value="${k}"${k===v?" selected":""}>${nomeMes(k)}${isLive(k)?"":" · arquivo"}</option>`).join("");
-
+ 
 /* ---------------- LANÇAMENTOS ---------------- */
 function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(l)),dups=dupsDe(ls),f=S.f,live=isLive(mes),w=podeEscrever()&&live;
   const nRisc=todos.length-ls.length;
@@ -346,7 +348,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
   // filtros
   const fonteLista=f.risc?todos.filter(riscoDe):ls;
   const base=fonteLista.filter(l=>(!f.cidade||l.cidade===f.cidade)&&(!f.canal||l.canal===f.canal)&&(!f.interesse||l.interesse===f.interesse)&&
-    (!f.resp||(f.resp==="__eu"?l.resp===S.me:l.resp===f.resp))&&(!f.busca||(l.contato+" "+l.cod+" "+l.obs).toLowerCase().includes(f.busca.toLowerCase()))&&
+    (!f.resp||(f.resp==="__eu"?respNome(l)===(meuNome()||nomeEquipe(S.me)):respNome(l)===f.resp))&&(!f.busca||(l.contato+" "+l.cod+" "+l.obs).toLowerCase().includes(f.busca.toLowerCase()))&&
     (!f.st||(f.st==="__sem"?!(R.pres(l)||R.falt(l)||R.canc(l)):(f.st==="Presença"?R.pres(l):f.st==="Faltoso"?R.falt(l):R.canc(l))))&&
     (!f.eDe||(l.data&&l.data>=f.eDe))&&(!f.eAte||(l.data&&l.data<=f.eAte))&&(!f.cDe||(l.agendamento&&l.agendamento>=f.cDe))&&(!f.cAte||(l.agendamento&&l.agendamento<=f.cAte)));
   const cont={};for(const l of base)cont[l.situacao||"(vazio)"]=(cont[l.situacao||"(vazio)"]||0)+1;
@@ -365,7 +367,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
     <label class="f" for="fea">até<input type="date" id="fea" data-a="f" data-k="eAte" value="${esc(f.eAte)}"></label>
     <label class="f" for="fcd">Consulta de<input type="date" id="fcd" data-a="f" data-k="cDe" value="${esc(f.cDe)}"></label>
     <label class="f" for="fca2">até<input type="date" id="fca2" data-a="f" data-k="cAte" value="${esc(f.cAte)}"></label>
-    ${live?`<label class="f" for="fre">Responsável<select id="fre" data-a="f" data-k="resp"><option value="">Todos</option><option value="__eu"${f.resp==="__eu"?" selected":""}>Meus leads</option>${resps.map(r=>`<option value="${esc(r)}"${f.resp===r?" selected":""}>${esc(nome(r))}</option>`).join("")}</select></label>`:""}
+    <label class="f" for="fre">Responsável<select id="fre" data-a="f" data-k="resp"><option value="">Todos</option>${live?`<option value="__eu"${f.resp==="__eu"?" selected":""}>Meus leads</option>`:""}${[...new Set([...EQUIPE,...ls.map(respNome).filter(Boolean)])].map(r=>`<option value="${esc(r)}"${f.resp===r?" selected":""}>${esc(r)}</option>`).join("")}</select></label>
   </div>
   <div class="chips" style="margin-bottom:12px">
     <button class="chip" data-a="sit" data-v="" aria-pressed="${!f.sit&&!f.pend&&!f.risc}">Todos <span class="c">${NUM.format(f.risc?ls.length:base.length)}</span></button>
@@ -384,13 +386,13 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
    const pi=porIntegrante(vis);const nomes=Object.keys(pi.g).filter(n=>EQUIPE.includes(n)||pi.g[n].ag);
    h+=`<div class="conf conf2"><span class="conf-t">Por integrante</span>${nomes.map(n=>`<span><b>${esc(n)}</b> agendou ${NUM.format(pi.g[n].ag)} · ${NUM.format(pi.g[n].pres)} presença${pi.g[n].pres===1?"":"s"}</span>`).join("")}<span><b>${MKT} (MKT)</b> ${NUM.format(pi.midia)} presenças das mídias</span></div>`}
   if(!vis.length)h+=`<div class="empty">${live&&!S.liveReady[mes]&&S.db?"Carregando lançamentos…":"Nenhum lead com esses filtros."}</div>`;
-  else{h+=`<div class="tablewrap"><table><thead><tr><th></th><th>Data</th><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Situação</th><th>Status</th><th>Consulta</th><th>COD / Observação</th>${live?"<th>Responsável</th>":""}</tr></thead><tbody>`;
+  else{h+=`<div class="tablewrap"><table><thead><tr><th></th><th>Data</th><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Situação</th><th>Status</th><th>Consulta</th><th>COD / Observação</th><th>Responsável</th></tr></thead><tbody>`;
     for(const l of vis.slice(0,f.lim)){const rk=riscoDe(l);const a=rk?[]:alertas(l,dups);const so=solicDe(l.key);
       h+=`<tr class="click${rk?" risc":""}" tabindex="0" data-a="abrir" data-k="${esc(l.key)}"><td title="${esc(a.map(x=>x[1]).join(" · "))}">${a.map(x=>`<span class="alert ${x[0]}"></span>`).join("")}${rk?`<span class="tag">→ ${esc(nomeMes(rk.para).slice(0,3))}</span>`:""}${so?`<span class="tag bad" title="Exclusão solicitada">excl.?</span>`:""}${l.anteriores&&l.anteriores.length?`<span class="tag info" title="Lead que já veio em outro mês">retorno</span>`:""}</td>
       <td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td><td>${esc(l.canal)}</td>
       <td>${l.situacao?`<span class="pill ${sitClass(l.situacao)}">${esc(l.situacao)}</span>`:""}</td><td>${l.status?`<span class="pill ${sitClass(l.status)}">${esc(l.status)}</span>`:""}</td>
       <td class="n">${esc(fmtData(l.agendamento).slice(0,5))}</td><td class="small" style="max-width:260px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td>
-      ${live?`<td class="small">${esc(nome(l.resp))}</td>`:""}</tr>`}
+      <td class="small">${esc(respNome(l))}</td></tr>`}
     h+=`</tbody></table></div>`;
     if(vis.length>f.lim)h+=`<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-a="mais">Mostrar mais (${NUM.format(vis.length-f.lim)} restantes)</button></div>`}
   h+=`<div class="legend" style="margin-top:10px"><span><i class="alert a-dup"></i>telefone repetido</span><span><i class="alert a-bad"></i>falta data / agendado sem data</span><span><i class="alert a-warn"></i>consulta passou sem baixa</span></div></div>`;
@@ -414,7 +416,7 @@ function dupPreview(){const el=document.getElementById("n-data");const mes=((el&
   let h="";if(ms.length)h+=`<div class="banner warn" style="margin-top:10px"><div><b>Este número já foi lançado antes:</b> ${ms.map(l=>`${esc(nomeMes(l.mes))} (${esc(l.situacao||"sem situação")}${l.agendamento?", consulta "+esc(fmtData(l.agendamento)):""})`).join("; ")}.<br>Ao salvar, ${ms.length>1?"esses lançamentos serão riscados":"esse lançamento será riscado"} e o lead fica em ${esc(nomeMes(mes))} com a observação "Lead de ${esc(ms.map(l=>nomeMes(l.mes).toLowerCase()).join(", "))}".${ms.some(R.pres)?" <b>Atenção:</b> o lançamento antigo tem presença; ao riscar, essa presença deixa de contar naquele mês.":""}</div></div>`;
   if(mesmo.length)h+=`<div class="banner bad" style="margin-top:10px">Este número já está lançado em ${esc(nomeMes(mes))}. Abra o lead existente em vez de lançar de novo.</div>`;
   return h}
-
+ 
 /* ---------------- gaveta de edição ---------------- */
 function acharLead(key){for(const k of [S.mes,...MESES]){const l=leadsDo(k).find(x=>x.key===key);if(l)return l}return null}
 function renderDrawer(){const root=document.getElementById("drawer-root");const l=S.sel&&acharLead(S.sel.key);
@@ -508,7 +510,7 @@ async function importarNovembro(){const b=document.getElementById("btn-imp"),pg=
       await new Promise(r=>setTimeout(r,60));}
     await lock.set({feito:true,quando:new Date().toISOString(),total:j.linhas.length});pg.textContent=" Pronto!";toast("Novembro importado.")}
   catch(e){b.disabled=false;pg.textContent=" Parou ("+(e&&e.code)+"). Clique de novo para continuar.";}}
-
+ 
 /* ---------------- FUNIL ---------------- */
 function filtraF(ls){const f=S.ff;return ls.filter(l=>(!f.cidade||(f.cidade==="Sem cidade"?!l.cidade:l.cidade===f.cidade))&&(!f.canal||l.canal===f.canal)&&(!f.interesse||l.interesse===f.interesse)&&(!f.resp||l.resp===f.resp))}
 function tabela(cab,linhas,tot){return `<div class="tablewrap"><table><thead><tr>${cab.map((c,i)=>`<th${i?' class="n"':""}>${esc(c)}</th>`).join("")}</tr></thead><tbody>${linhas.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`).join("")}${tot?`<tr class="tot">${tot.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`:""}</tbody></table></div>`}
@@ -552,7 +554,7 @@ function vFunil(){const mes=S.mes,ls0=ativos(mes),ls=filtraF(ls0),m=met(ls,mes),
   h+=`<div class="card"><h2>Leads e agendados por dia de entrada</h2>${barras(dias,["var(--line)","var(--info)"],["Leads","Agendados"],{h:200})}</div>`;
   return h}
 function kpi(t,v,sub,cor,delta){return `<div class="kpi" style="--k:${cor}"><span>${esc(t)}</span><b>${v}</b><em>${sub||"&nbsp;"}${delta||""}</em></div>`}
-
+ 
 /* ---------------- gráficos SVG ---------------- */
 function escala(max){if(max<=0)return [1,[0,1]];const p=Math.pow(10,Math.floor(Math.log10(max)));let st=[1,2,2.5,5,10].map(x=>x*p).find(s=>max/s<=5);const top=Math.ceil(max/st)*st;const ticks=[];for(let v=0;v<=top+1e-9;v+=st)ticks.push(v);return [top,ticks]}
 function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(o.bw||26)),H=o.h||220,pl=o.money?70:40,pb=26,pt=10,pr=10;
@@ -563,7 +565,7 @@ function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(
   dados.forEach((d,i)=>{const x0=pl+gw*i+(gw-bw*n)/2;d.v.forEach((v,j)=>{if(v>0)s+=`<rect x="${x0+j*bw}" y="${y(v)}" width="${bw-2}" height="${Math.max(0,y(0)-y(v))}" rx="2" fill="${cores[j]}"><title>${esc(d.label)} · ${esc(nomes[j])}: ${fmt(v)}</title></rect>`});
     s+=`<text x="${pl+gw*i+gw/2}" y="${H-8}" text-anchor="middle">${esc(d.label)}</text>`});
   s+=`</svg>`;return `<div style="overflow-x:auto">${s}</div><div class="legend">${nomes.map((nm,j)=>`<span><i style="background:${cores[j]}"></i>${esc(nm)}</span>`).join("")}</div>`}
-
+ 
 /* ---------------- ADMINISTRATIVO ---------------- */
 function admMes(k){const a=S.adm[k]||{};const inv=a.invest||{};const val=a.valores||{};
   const investido=["principal","paralela","outros","semdiv"].reduce((s,c)=>s+(+inv[c]||0),0);
@@ -595,33 +597,56 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
   h+=vRespImport();
   if(S.isOwner)h+=vAcesso();
   return h}
-
+ 
 /* ---- Responsáveis pelos agendamentos: importar da planilha de metas do comercial ---- */
 const ABAS_RESP=[[/^VINI(CIUS)?$/,"Vinícius"],[/^SAMI|^SAMARA$/,"Samara"],[/^BER(NARDO)?$/,"Bernardo"]];
 function abaParaNome(t){const n=semAc(String(t||"")).toUpperCase().trim();for(const [re,nome] of ABAS_RESP)if(re.test(n))return nome;return null}
 function mesDoArquivo(nome){const n=semAc(nome).toLowerCase();for(let i=0;i<12;i++)if(n.includes(semAc(MES_NOME[i]).toLowerCase())){const k="2026-"+String(i+1).padStart(2,"0");if(MESES.includes(k))return k}
   const m=n.match(/^(\d{1,2})[.\s_-]/);if(m){const k="2026-"+String(+m[1]).padStart(2,"0");if(MESES.includes(k))return k}return null}
 const codsDe=x=>new Set((String(x||"").match(/(?<!\d)\d{2,7}(?!\d)/g)||[]).map(c=>c.replace(/^0+/,"")).filter(Boolean));
+ 
+// datas da planilha de metas: texto dd/mm/aaaa; células de data vieram com dia e mês trocados (Excel em inglês)
+function dataPlan(x){const p2=n=>String(n).padStart(2,"0");
+  if(typeof x==="number"&&x>20000&&x<80000){const d=XLSX.SSF.parse_date_code(x);if(!d)return "";return d.d<=12?`${d.y}-${p2(d.d)}-${p2(d.m)}`:`${d.y}-${p2(d.m)}-${p2(d.d)}`}
+  const m=String(x||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?`${m[3]}-${p2(m[2])}-${p2(m[1])}`:""}
+const CANAL_PLAN=v=>{const n=semAc(v).toLowerCase();if(!n)return "Orgânico";if(n.startsWith("organ")||n.includes("profilaxia/org"))return "Orgânico";
+  if(n.includes("bot")||n.includes("site"))return "Site";for(const c of OPC.canal)if(semAc(c).toLowerCase()===n)return c;return "Outros"};
+const CIDADE_PLAN=v=>{const n=semAc(v).toLowerCase();if(!n)return "";for(const c of OPC.cidade)if(semAc(c).toLowerCase().startsWith(n)||n.startsWith(semAc(c).toLowerCase()))return c;return "Outra cidade"};
+const INTER_PLAN=v=>{const n=semAc(v).toLowerCase();return n.startsWith("orto")?"Aparelho":n.startsWith("impl")?"Implante":n.startsWith("facet")?"Facetas":"Clínico geral"};
+function leadDaPlanilha(x,mes){const st=["Presença","Faltoso","Cancelado"].find(s=>semAc(s).toLowerCase()===semAc(x.status).toLowerCase())||"";
+  const sn=semAc(x.sit).toLowerCase();const sit=sn.startsWith("perdeu")?"Perdeu interesse":sn.startsWith("em contato")?"Em contato":"Agendado";
+  const dentro=x.data&&x.data.slice(0,7)===mes;const data=dentro?x.data:(mes+"-01");
+  const obs=["Importado da planilha de metas ("+x.aba+")",x.via&&CANAL_PLAN(x.via)!==x.via?"via "+x.via:"",x.esp?"especialidade "+x.esp:"",!dentro&&x.data?"entrada original "+fmtData(x.data):""].filter(Boolean).join(" · ");
+  return {canal:CANAL_PLAN(x.via),data,contato:x.telBruto,cidade:CIDADE_PLAN(x.cidade),interesse:INTER_PLAN(x.esp),situacao:sit,status:sit==="Agendado"?st:"",
+    cod:x.cod,obs,agendamento:x.ag&&x.ag.slice(0,4)==="2026"?x.ag:"",fechou:"",fonte:x.via||"",agPor:x.nome}}
 function lerAbasMetas(wb){const out=[];
   for(const t of wb.SheetNames){const nome=abaParaNome(t);if(!nome)continue;
     const rows=XLSX.utils.sheet_to_json(wb.Sheets[t],{header:1,raw:true,defval:""});
     let hi=rows.findIndex(r=>r.some(c=>semAc(String(c)).toLowerCase().trim()==="telefone")&&r.some(c=>String(c).trim().toUpperCase()==="COD"));if(hi<0)continue;
-    const H=rows[hi].map(c=>semAc(String(c)).toLowerCase().trim());const iT=H.indexOf("telefone"),iC=H.indexOf("cod"),iQ=H.indexOf("quem agendou");
-    for(const r of rows.slice(hi+1)){const tel=tel8(String(r[iT]??"").replace(/\.0+$/,""));const cv=r[iC];const cod=cv===""||cv==null?"":String(typeof cv==="number"?Math.trunc(cv):cv).trim();
-      if(!tel&&!cod)continue;out.push({aba:t,nome,tel,cods:codsDe(cod),quem:iQ>=0?String(r[iQ]||"").trim():""})}}
+    const H=rows[hi].map(c=>semAc(String(c)).toLowerCase().trim());const ix=n=>H.indexOf(n);const iT=ix("telefone"),iC=ix("cod"),iQ=ix("quem agendou");
+    const iV=ix("via"),iD=ix("data"),iCi=ix("cidade"),iSi=ix("situacao"),iA=ix("agendamento"),iS=ix("status"),iE=ix("especialidade");
+    const v=(r,i)=>i>=0?String(r[i]??"").replace(/\s+/g," ").trim():"";
+    for(const r of rows.slice(hi+1)){const telBruto=String(r[iT]??"").replace(/\.0+$/,"").trim();const tel=tel8(telBruto);const cv=r[iC];const cod=cv===""||cv==null?"":String(typeof cv==="number"?Math.trunc(cv):cv).trim();
+      if(!tel&&!cod)continue;out.push({aba:t,nome,tel,telBruto,cod,cods:codsDe(cod),quem:iQ>=0?String(r[iQ]||"").trim():"",
+        via:v(r,iV),data:dataPlan(r[iD]),cidade:v(r,iCi),sit:v(r,iSi),ag:dataPlan(r[iA]),status:v(r,iS),esp:v(r,iE)})}}
   return out}
 function cruzarResp(linhas,mes){const idxT={},idxC={};const pode=l=>noGrupoAg(l)||R.agend(l);
   for(const k of MESES)for(const l of ativos(k)){if(!pode(l))continue;const t=tel8(l.contato);if(t)(idxT[t]=idxT[t]||[]).push(l);
     for(const c of codsDe((l.cod||"")+" "+(l.live?"":l.obs||"")))(idxC[c]=idxC[c]||[]).push(l)}
-  const atrib={},porPessoa={},conflito=new Set();let thaina=0;
+  const atrib={},porPessoa={},conflito=new Set(),novos=[];let thaina=0;
   for(const x of linhas){const pp=porPessoa[x.nome]=porPessoa[x.nome]||{linhas:0,achou:0,sem:0};pp.linhas++;if(/thain/i.test(semAc(x.quem)))thaina++;
     const c=new Map();for(const l of (x.tel&&idxT[x.tel])||[])c.set(l.key,l);for(const cd of x.cods)for(const l of idxC[cd]||[])c.set(l.key,l);
     let alvo=[...c.values()].filter(l=>(l.agendamento||"").slice(0,7)===mes);if(!alvo.length)alvo=[...c.values()].filter(l=>l.mes===mes);
-    if(!alvo.length){pp.sem++;continue}pp.achou++;
-    for(const l of alvo){const a=atrib[l.key];if(a&&a.nome!==x.nome)conflito.add(l.key);else atrib[l.key]={l,nome:x.nome}}}
+    if(!alvo.length){pp.sem++;novos.push(x);continue}pp.achou++;
+    const stP=["Presença","Faltoso","Cancelado"].find(s=>semAc(s).toLowerCase()===semAc(x.status).toLowerCase())||"";
+    for(const l of alvo){const a=atrib[l.key];if(a&&a.nome!==x.nome)conflito.add(l.key);else atrib[l.key]={l,nome:x.nome,st:(a&&a.st)||stP}}}
   for(const k of conflito)delete atrib[k];
   const lista=Object.values(atrib);const mudam=lista.filter(a=>agendadorNome(a.l)!==a.nome).length;
-  return {mes,porPessoa,lista,conflitos:conflito.size,thaina,mudam}}
+  const statusNovos=lista.filter(a=>a.st&&!a.l.status&&!["Presença","Faltoso","Cancelado"].includes(a.l.situacao)).length;
+  // mesmo paciente repetido entre as abas: cria um só (fica com a 1ª aba)
+  const vistos=new Set(),novosU=[];for(const x of novos){const k=x.tel||("c"+[...x.cods][0]);if(vistos.has(k))continue;vistos.add(k);novosU.push(x)}
+  const porCanal={};for(const x of novosU){const c=CANAL_PLAN(x.via);porCanal[c]=(porCanal[c]||0)+1}
+  return {mes,porPessoa,lista,conflitos:conflito.size,thaina,mudam,novos:novosU,porCanal,statusNovos}}
 async function importarResp(file){if(!S.isAdm)return;const mes=S.respMes||mesDoArquivo(file.name)||S.mes;S.respMes=mes;
   try{await carregar(LIB.xlsx);const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:"array"});
     const linhas=lerAbasMetas(wb);if(!linhas.length){toast("Não achei as abas VINI, SAMI ou BER (com as colunas Telefone e COD) nessa planilha.");return}
@@ -629,11 +654,25 @@ async function importarResp(file){if(!S.isAdm)return;const mes=S.respMes||mesDoA
   catch(e){toast("Não consegui ler a planilha. Confira se é um arquivo .xlsx.")}}
 async function aplicarResp(){const p=S.respPrev;if(!p||!S.isAdm)return;const b=document.querySelector('[data-a="respaplicar"]');if(b)b.disabled=true;
   let n=0;const hist={};
-  try{for(const a of p.lista){if(a.l.live){if(a.l.agPor!==a.nome){await serial(a.l.key,()=>S.db.doc("m/"+a.l.mes+"/leads/"+a.l.id).update({agPor:a.nome}));n++}}
-      else{(hist[a.l.mes]=hist[a.l.mes]||{})[a.l.key]=a.nome}}
+  const semSt=a=>a.st&&!a.l.status&&!["Presença","Faltoso","Cancelado"].includes(a.l.situacao);let nSt=0;const histSt={};
+  try{for(const a of p.lista){if(a.l.live){const up={};if(a.l.agPor!==a.nome)up.agPor=a.nome;
+        if(semSt(a)){up.status=a.st;up.notas=[...a.l.notas,{u:"import",t:new Date().toISOString(),de:a.l.situacao||"",para:a.l.situacao||"",st:a.st,txt:"Status da planilha de metas do comercial"}].slice(-60);nSt++}
+        if(Object.keys(up).length){await serial(a.l.key,()=>S.db.doc("m/"+a.l.mes+"/leads/"+a.l.id).update(up));n++}}
+      else{(hist[a.l.mes]=hist[a.l.mes]||{})[a.l.key]=a.nome;if(semSt(a)&&S.isOwner){(histSt[a.l.mes]=histSt[a.l.mes]||{})[+a.l.key.split("-").pop()]=a.st;nSt++}}}
+    for(const [m,st] of Object.entries(histSt)){const arr=S.hist.meses[m].map(x=>x.slice(0,11));for(const [i,v] of Object.entries(st))if(arr[i]&&!arr[i][6])arr[i][6]=v;
+      await S.db.doc("hist/"+m).set({json:JSON.stringify(arr)});S.hist.meses[m]=arr}
     for(const [m,mapa] of Object.entries(hist)){const atual=(S.resp&&S.resp[m])||{};const novo={...atual,...mapa};
       n+=Object.keys(mapa).filter(k=>atual[k]!==mapa[k]).length;await S.db.doc("resp/"+m).set({mapa:novo,em:new Date().toISOString(),por:S.me||""});S.resp[m]=novo}
-    toast(`Pronto: ${NUM.format(n)} responsáveis atualizados em ${nomeMes(p.mes)}.`);S.respPrev=null;render()}
+    let criados=0;
+    if(S.respCriar!==false&&p.novos.length){const t=new Date().toISOString();
+      if(isLive(p.mes)){for(const x of p.novos){const d=leadDaPlanilha(x,p.mes);
+          await S.db.collection("m/"+p.mes+"/leads").add({...d,resp:S.me||"",criado:t,anteriores:[],importadoMetas:t,
+            notas:[{u:"import",t,de:"Agendado",para:"Agendado",st:d.status,txt:"Importado da planilha de metas do comercial ("+x.aba+")"}]});criados++}}
+      else if(S.isOwner&&S.hist&&S.hist.meses[p.mes]){const arr=S.hist.meses[p.mes].map(a=>a.slice(0,11));const mapa={...((S.resp&&S.resp[p.mes])||{})};
+        for(const x of p.novos){const d=leadDaPlanilha(x,p.mes);arr.push([d.canal,d.data,d.contato,d.cidade,d.interesse,d.situacao,d.status,[d.cod,d.obs].filter(Boolean).join(" | "),d.agendamento,"",d.fonte]);mapa["h-"+p.mes+"-"+(arr.length-1)]=x.nome;criados++}
+        await S.db.doc("hist/"+p.mes).set({json:JSON.stringify(arr)});await S.db.doc("resp/"+p.mes).set({mapa,em:t,por:S.me||""});
+        S.hist.meses[p.mes]=arr;S.resp[p.mes]=mapa}}
+    toast(`Pronto: ${NUM.format(n)} leads atualizados${nSt?` (${NUM.format(nSt)} com status da planilha)`:""}${criados?` e ${NUM.format(criados)} incluídos`:""} em ${nomeMes(p.mes)}.`);S.respPrev=null;render()}
   catch(e){tratarErro(e);if(b)b.disabled=false}}
 function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.respMes||S.mes;
   const ops=MESES.filter(k=>k<=mesAtual).map(k=>`<option value="${k}"${k===mesSel?" selected":""}>${esc(nomeMes(k))}</option>`).join("");
@@ -644,8 +683,10 @@ function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.r
   if(p){const linhasT=Object.entries(p.porPessoa).map(([n,x])=>`<tr><td>${esc(n)}</td><td class="n">${NUM.format(x.linhas)}</td><td class="n"><b>${NUM.format(x.achou)}</b></td><td class="n">${NUM.format(x.sem)}</td></tr>`).join("");
     h+=`<div class="banner info" style="margin-top:12px">Arquivo <b>${esc(p.arquivo)}</b> · abas ${esc(p.abas.join(", "))} · comparado com os leads agendados para <b>${esc(nomeMes(p.mes))}</b>.</div>
      <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Aba → responsável</th><th class="n">Pacientes na aba</th><th class="n">Achados no Funil</th><th class="n">Não estão no Funil</th></tr></thead><tbody>${linhasT}</tbody></table></div>
-     <div class="small muted" style="margin-top:8px"><b>${NUM.format(p.lista.length)}</b> leads recebem responsável (${NUM.format(p.mudam)} mudam).${p.conflitos?` <b>${NUM.format(p.conflitos)}</b> leads aparecem em duas abas e ficaram como estão.`:""}${p.thaina?` ${NUM.format(p.thaina)} linhas têm "Thainá" na coluna Quem agendou e seguem a aba onde estão.`:""} Pacientes que não estão no Funil (ex.: reativações e profilaxia da base) não mudam nada.</div>
-     <div class="row" style="gap:8px;margin-top:10px"><button class="btn pri" data-a="respaplicar"${p.lista.length?"":" disabled"}>Aplicar no Funil</button><button class="btn" data-a="respcancel">Cancelar</button></div>`}
+     <div class="small muted" style="margin-top:8px"><b>${NUM.format(p.lista.length)}</b> leads recebem responsável (${NUM.format(p.mudam)} mudam).${p.statusNovos?` ${NUM.format(p.statusNovos)} estavam sem status no Funil e recebem o status da planilha (Presença, Faltoso ou Cancelado); status já lançado não muda.`:""}${p.conflitos?` <b>${NUM.format(p.conflitos)}</b> leads aparecem em duas abas e ficaram como estão.`:""}${p.thaina?` ${NUM.format(p.thaina)} linhas têm "Thainá" na coluna Quem agendou e seguem a aba onde estão.`:""}</div>
+     ${p.novos.length?`<div class="banner warn" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-a="respcriar"${S.respCriar!==false?" checked":""}${!isLive(p.mes)&&!S.isOwner?" disabled":""}>
+       <span><b>Incluir no Funil os ${NUM.format(p.novos.length)} pacientes que ainda não estão lá</b> (${esc(Object.entries(p.porCanal).map(([c,n])=>c+": "+n).join(" · "))}), já com o responsável da aba, situação, status e data da consulta da planilha.${!isLive(p.mes)&&!S.isOwner?" Só a Nicele pode incluir em meses antigos.":""}</span></label></div>`:""}
+     <div class="row" style="gap:8px;margin-top:10px"><button class="btn pri" data-a="respaplicar"${p.lista.length||p.novos.length?"":" disabled"}>Aplicar no Funil</button><button class="btn" data-a="respcancel">Cancelar</button></div>`}
   return h+`</div>`}
 /* ---- EXPORTAR ---- */
 const LIB={xlsx:"https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",jspdf:"https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js",at:"https://cdn.jsdelivr.net/npm/jspdf-autotable@3.5.31/dist/jspdf.plugin.autotable.min.js"};
@@ -691,7 +732,7 @@ function barraExport(mes){return `<div class="row" style="gap:8px;align-items:ce
   <button class="btn" data-a="exp" data-v="rx">Resultado do mês · Excel</button><button class="btn" data-a="exp" data-v="rp">Resultado do mês · PDF</button></div>`}
 /* ---- INÍCIO ---- */
 function dlt(a,b,inv){if(!b)return "";const d=a/b-1;if(!isFinite(d))return "";const bom=inv?d<0:d>0;return `<span class="${bom?"pos":"neg"}">${d>=0?"▲":"▼"} ${pct(Math.abs(d))}</span>`}
-
+ 
 /* ---- Ranking da equipe (aba Início) ---- */
 const diaLocal=d=>{const x=new Date(d);return isNaN(x)?"":x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
 const somaDias=(iso,n)=>diaLocal(new Date(new Date(iso+"T12:00").getTime()+n*864e5));
@@ -890,7 +931,7 @@ function numBR(s){s=String(s).trim().replace(/[R$\s]/g,"");if(!s)return null;if(
 async function salvarAdm(k,mut){const ref=S.db.doc("adm/"+k);
   return serial("adm/"+k,async()=>{const novo=JSON.parse(JSON.stringify(S.adm[k]||{}));novo.invest=novo.invest||{};novo.valores=novo.valores||{};novo.metas=novo.metas||{};
     mut(novo);S.adm[k]=novo;await ref.set(novo)})}
-
+ 
 /* ---------------- eventos ---------------- */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a;
   if(a==="sit"){S.f.sit=t.dataset.v;S.f.res="";S.f.pend=false;S.f.risc=false;S.f.lim=150;render()}
@@ -938,6 +979,7 @@ document.addEventListener("input",e=>{const t=e.target;const a=t.dataset&&t.data
   else if(a==="dset"&&S.sel){S.sel.draft[t.dataset.k]=t.value;if(t.dataset.k==="agendamento"||t.dataset.k==="status")renderDrawer()}});
 document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&&t.dataset.a;
   if(a==="robosim"){S.robo_simular=!!t.checked;return}
+  if(a==="respcriar"){S.respCriar=!!t.checked;return}
   if(a==="respmes"){S.respMes=t.value;if(S.respPrev){S.respPrev={...S.respPrev,...cruzarResp(S.respPrev.linhas,t.value)}}render();return}
   if(a==="respfile"){const f=t.files&&t.files[0];t.value="";if(f){S.respMes=null;const sel=document.getElementById("resp-mes");const auto=mesDoArquivo(f.name);S.respMes=auto||(sel&&sel.value)||S.mes;importarResp(f)}return}
   if(a==="rkp"){S.rk={...(S.rk||{}),p:t.value};if(t.value==="custom"){S.rk.de=S.rk.de||mesAtual+"-01";S.rk.ate=S.rk.ate||hoje}render();return}
@@ -998,7 +1040,7 @@ function vChaveRobo(){return `<div class="row" style="margin-top:14px;padding-to
   <label class="f" for="robo-tok" style="flex:1;min-width:240px">Chave do GitHub para o botão do robô<input id="robo-tok" type="password" autocomplete="off" placeholder="${S.roboTemChave?"Chave cadastrada · cole outra para trocar":"Cole aqui a chave (github_pat_...)"}"></label>
   <button class="btn" data-a="robotok">Salvar chave</button></div>
   <div class="small muted" style="margin-top:4px">Fica guardada no banco e só a gerência consegue ler. Nunca é mostrada na tela.</div>`}
-
+ 
 /* ---- Robô de conferência de presenças (usado pelo Claude pelo navegador; só gerência) ---- */
 window.__robo={
   pendentes(ate){ate=ate||hoje;if(!S.isAdm)throw new Error("Só a gerência pode usar o robô.");
@@ -1022,10 +1064,10 @@ window.__robo={
       catch(e){res.pulados.push({id:it.id,motivo:"erro "+((e&&e.code)||e)})}}
     toast("Robô: "+res.gravados+" status gravados"+(res.pulados.length?", "+res.pulados.length+" pulados":"")+".");return res}
 };
-
+ 
 window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
 </html>
-
+ 
  
