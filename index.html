@@ -601,6 +601,7 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
      <div><div class="small muted">Total</div><b class="num" style="font-size:18px">${BRL.format(a.investido)}</b></div></div></div>`;}
     h+=vRespImport();
     if(S.isOwner)h+=vAcesso();
+    h+=vZerar(S.mes);
     return h}
   // Conferência de metas
   h+=`<div class="card"><h2 style="margin-bottom:10px">Conferência do mês · ${esc(nomeMes(S.mes))} <small>todos os leads do mês, sem filtros</small></h2>${vConfMes(ativos(S.mes),S.mes,false,false)}</div>`;
@@ -732,6 +733,27 @@ async function limparDupImport(mes){if(!S.isAdm)return;const acoes=planoLimpeza(
     if(mudouMapa){await S.db.doc("resp/"+mes).set({mapa,em:t,por:S.me||""});S.resp[mes]=mapa}
     toast(`${NUM.format(n)} lançamentos duplicados da importação foram riscados em ${nomeMes(mes)}.`);render()}
   catch(e){tratarErro(e);if(b)b.disabled=false}}
+
+/* ---- zerar os leads de um mês (só a dona) ---- */
+function vZerar(mes){if(!S.isOwner||!isLive(mes))return "";const n=leadsDo(mes).filter(l=>l.live).length;const pal="ZERAR";
+  const riscPrev=MESES.filter(m=>m<mes).reduce((a,m)=>a+Object.values(S.risc[m]||{}).filter(r=>r&&r.para===mes).length,0);
+  return `<div class="card" style="border-left:4px solid var(--bad)"><h2>Zerar os leads de ${esc(nomeMes(mes))} <small>só você vê este cartão</small></h2>
+   <p class="small" style="margin-top:0">Apaga os <b>${NUM.format(n)} leads</b> de ${esc(nomeMes(mes))}, os responsáveis importados e os pedidos de exclusão do mês. <b>Investimento, valores das presenças e limpezas ficam.</b>${riscPrev?` ${NUM.format(riscPrev)} leads de meses anteriores que estavam riscados por terem voltado em ${esc(nomeMes(mes).split(" ")[0].toLowerCase())} voltam a contar no mês de origem.`:""}
+   Antes de apagar, o sistema baixa um <b>backup completo</b> no seu computador. Não tem como desfazer pelo sistema: só restaurando esse backup.</p>
+   <div class="row" style="gap:8px;align-items:flex-end;flex-wrap:wrap"><label class="f" for="zr-txt">Para confirmar, digite ${pal}<input id="zr-txt" data-a="zerartxt" autocomplete="off" value="${esc(S.zerarTxt||"")}"></label>
+   <button class="btn danger" data-a="zerar" data-m="${mes}"${(S.zerarTxt||"").trim().toUpperCase()===pal&&n?"":" disabled"}>Zerar ${esc(nomeMes(mes))}</button><span class="small muted" id="zr-prog"></span></div></div>`}
+async function zerarMes(mes){if(!S.isOwner||!isLive(mes))return;if((S.zerarTxt||"").trim().toUpperCase()!=="ZERAR")return;
+  const b=document.querySelector('[data-a="zerar"]');if(b)b.disabled=true;const pg=()=>document.getElementById("zr-prog");const msg=t=>{const e=pg();if(e)e.textContent=t};
+  try{msg("Baixando o backup…");await baixarBackup();await new Promise(r=>setTimeout(r,800));
+    const ls=leadsDo(mes).filter(l=>l.live);let i=0;
+    for(let j=0;j<ls.length;j+=20){await Promise.all(ls.slice(j,j+20).map(l=>S.db.doc("m/"+mes+"/leads/"+l.id).delete()));i=Math.min(ls.length,j+20);msg(`Apagando ${i} de ${ls.length}…`);await new Promise(r=>setTimeout(r,120))}
+    try{await S.db.doc("resp/"+mes).delete()}catch(e){}if(S.resp)delete S.resp[mes];
+    for(const x of (S.solic||[]).filter(x=>x.mes===mes)){try{await S.db.doc("solic/"+x.sid).delete()}catch(e){}}
+    for(const m of MESES.filter(m=>m<mes)){const it=S.risc[m]||{};const fica={};let mud=false;for(const [k,v] of Object.entries(it)){if(v&&v.para===mes)mud=true;else fica[k]=v}
+      if(mud)await serial("risc/"+m,()=>S.db.doc("risc/"+m).set({itens:fica}));
+      if(isLive(m))for(const l of leadsDo(m).filter(l=>l.live&&l.riscado&&l.riscado.para===mes))await serial(l.key,()=>S.db.doc("m/"+m+"/leads/"+l.id).update({riscado:null}))}
+    S.zerarTxt="";toast(`${nomeMes(mes)} zerado: ${NUM.format(i)} leads apagados. O backup foi baixado antes.`);render()}
+  catch(e){tratarErro(e);if(b)b.disabled=false;msg("Parou no meio. Clique de novo para continuar.")}}
 function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.respMes||S.mes;
   const ops=MESES.filter(k=>k<=mesAtual).map(k=>`<option value="${k}"${k===mesSel?" selected":""}>${esc(nomeMes(k))}</option>`).join("");
   let h=`<div class="card"><h2>Responsáveis pelos agendamentos <small>planilha de metas do comercial</small></h2>
@@ -1054,6 +1076,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="mflimpar"){S.mf={};render()}
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
+  else if(a==="zerar"){zerarMes(t.dataset.m)}
   else if(a==="limpadup"){limparDupImport(t.dataset.m)}
   else if(a==="respcancel"){S.respPrev=null;render()}
   else if(a==="rkhoje"){e.preventDefault();S.rk={p:"hoje"};render()}
@@ -1066,7 +1089,7 @@ document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.sel){S.sel=null;d
   if(e.key==="Enter"&&e.target.matches("tr[data-a=abrir]")){e.target.click()}});
 document.addEventListener("submit",e=>{if(e.target.id==="fnovo")salvarNovo(e)});
 let buscaT=null;
-document.addEventListener("input",e=>{const t=e.target;const a=t.dataset&&t.dataset.a;
+document.addEventListener("input",e=>{const t=e.target;if(t.dataset&&t.dataset.a==="zerartxt"){S.zerarTxt=t.value;const b=document.querySelector('[data-a="zerar"]');if(b)b.disabled=t.value.trim().toUpperCase()!=="ZERAR";return}const a=t.dataset&&t.dataset.a;
   if(a==="f"&&t.dataset.k==="busca"){S.f.busca=t.value;clearTimeout(buscaT);buscaT=setTimeout(render,200)}
   else if(a==="ntel"||t.id==="n-data"){if(a==="ntel")S.novoTel=t.value;clearTimeout(buscaT);buscaT=setTimeout(()=>{const el=document.getElementById("n-dup");if(el)el.innerHTML=dupPreview()},250)}
   else if(a==="dset"&&S.sel){S.sel.draft[t.dataset.k]=t.value;if(t.dataset.k==="agendamento"||t.dataset.k==="status")renderDrawer()}});
@@ -1075,6 +1098,7 @@ document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&
   if(a==="mfcol"){S.mf={...(S.mf||{}),col:t.value};render();return}
   if(a==="mfp"){S.mf={...(S.mf||{}),p:t.value};render();return}
   if(a==="mfde"||a==="mfate"){S.mf={...(S.mf||{}),p:"custom",[a==="mfde"?"de":"ate"]:t.value};render();return}
+  if(a==="zerartxt"){S.zerarTxt=t.value;const b=document.querySelector('[data-a="zerar"]');if(b)b.disabled=t.value.trim().toUpperCase()!=="ZERAR";return}
   if(a==="respcriar"){S.respCriar=!!t.checked;return}
   if(a==="respmes"){S.respMes=t.value;if(S.respPrev){S.respPrev={...S.respPrev,...cruzarResp(S.respPrev.linhas,t.value)}}render();return}
   if(a==="respfile"){const f=t.files&&t.files[0];t.value="";if(f){S.respMes=null;const sel=document.getElementById("resp-mes");const auto=mesDoArquivo(f.name);S.respMes=auto||(sel&&sel.value)||S.mes;importarResp(f)}return}
