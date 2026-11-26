@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -199,14 +198,14 @@ const MESES=listaMeses();
 const isLive=k=>k>ULTIMO_ARQUIVADO;
 const trimestre=k=>Math.ceil(+k.slice(5,7)/3);
 const sitClass=s=>({"Em contato":"p-contato","Agendado":"p-agendado","Presença":"p-presenca","Faltoso":"p-faltoso","Cancelado":"p-cancelado","Perdeu interesse":"p-perdeu"}[s]||"p-contato");
- 
+
 /* ---------------- estado ---------------- */
 const S={resp:{},view:"inicio",mes:MESES.includes(mesAtual)?mesAtual:MESES[MESES.length-1],hist:null,live:{},liveReady:{},adm:{},admReady:false,
   db:null,user:null,me:null,isOwner:false,canWrite:null,readOnlyForced:false,names:{},
   f:{sit:"",cidade:"",canal:"",interesse:"",resp:"",busca:"",pend:false,lim:150,st:"",eDe:"",eAte:"",cDe:"",cAte:""},
   ff:{cidade:"",canal:"",interesse:"",resp:""}, adm_mode:"mes", adm_tri:Math.ceil((+mesAtual.slice(5,7))/3), adm_soSemValor:false,
   stale:false, err:"", migr:null, risc:{}, solic:[], cfg:{gestores:[]}, isAdm:false, novoTel:"", pessoas:null, pub:{}, fin_mode:"mes"};
- 
+
 /* ---------------- dados ---------------- */
 function fromHist(mes,arr,i){return {key:"h-"+mes+"-"+i,mes,live:false,canal:arr[0],data:arr[1],contato:arr[2],cidade:arr[3],interesse:arr[4],
   situacao:arr[5],status:arr[6],cod:"",obs:arr[7],agendamento:arr[8],fechou:arr[9],fonte:arr[10],resp:null,notas:[]}}
@@ -238,7 +237,7 @@ function alertas(l,dups){const a=[];if(dups.set.has(l.key))a.push(["a-dup","Dupl
 // duplicidade no mês: mesmo telefone (8 últimos dígitos) ou mesmo COD. O 1º lançado fica normal; os outros ficam marcados.
 function dupsDe(ls){const set=new Set(),orig={},visto={},prim=new Set();
   const ord=ls.slice().sort((a,b)=>(a.data||"").localeCompare(b.data||"")||(a.criado||"").localeCompare(b.criado||"")||String(a.key).localeCompare(String(b.key)));
-  for(const l of ord){const t=tel8(l.contato);const cds=[...codsDe(l.cod||(l.live?"":l.obs))];const ks=[t&&"t"+t,...cds.map(c=>"c"+c)].filter(Boolean);
+  for(const l of ord){const t=tel8(l.contato);const cds=[...codsLead(l)];const ks=[t&&"t"+t,...cds.map(c=>"c"+c)].filter(Boolean);
     const ja=ks.find(k=>visto[k]);if(ja){set.add(l.key);orig[l.key]=visto[ja];prim.add(visto[ja].key)}ks.forEach(k=>{if(!visto[k])visto[k]=l})}
   return {set,orig,prim}}
 const riscoDe=l=>l.live?l.riscado:((S.risc[l.mes]||{})[l.key]||null);
@@ -261,7 +260,7 @@ function porIntegrante(ls){const g={};for(const n of EQUIPE)g[n]={ag:0,pres:0,fa
 const solicDe=key=>S.solic.find(x=>x.key===key&&x.status==="pendente");
 const nome=id=>id?(S.names[id]||"Alguém da equipe"):"Importado da planilha";
 const iniciais=n=>n.split(/\s+/).filter(Boolean).slice(0,2).map(p=>p[0].toUpperCase()).join("")||"?";
- 
+
 /* ---------------- plataforma ---------------- */
 let unsub={};
 async function boot(){
@@ -316,7 +315,7 @@ function renderWho(){const w=document.getElementById("who");const n=S.me?(S.name
 const podeEscrever=()=>!!S.db&&S.canWrite!==false&&!S.readOnlyForced;
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const filas={};function serial(key,fn){const p=(filas[key]||Promise.resolve()).then(fn,fn);filas[key]=p.catch(()=>{});return p}
- 
+
 /* ---------------- render geral ---------------- */
 function rota(){const h=location.hash.replace("#","");S.view=["inicio","lancamentos","funil","administrativo"].includes(h)?h:"inicio";
   for(const a of document.querySelectorAll("#tabs a"))if(a.dataset.v===S.view)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current");
@@ -339,7 +338,7 @@ function render(){const m=document.getElementById("main");
 }
 const opts=(arr,v,vazio)=>(vazio!=null?`<option value="">${esc(vazio)}</option>`:"")+arr.map(o=>`<option${o===v?" selected":""}>${esc(o)}</option>`).join("");
 const mesOpts=v=>MESES.map(k=>`<option value="${k}"${k===v?" selected":""}>${nomeMes(k)}${isLive(k)?"":" · arquivo"}</option>`).join("");
- 
+
 /* ---------------- LANÇAMENTOS ---------------- */
 function vConfMes(ls,mes,ativoF,botao){const cm=met(ls,mes);
    const it=[["Leads",cm.leads],["Agendados",cm.agend],["Presenças",cm.pres],["Faltas",cm.falt],["Cancelados",cm.canc],["Em contato",cm.emc],["Perdeu interesse",cm.perd],["Aguardando baixa",cm.aguard]];
@@ -427,7 +426,7 @@ function dupPreview(){const el=document.getElementById("n-data");const mes=((el&
   let h="";if(ms.length)h+=`<div class="banner warn" style="margin-top:10px"><div><b>Este número já foi lançado antes:</b> ${ms.map(l=>`${esc(nomeMes(l.mes))} (${esc(l.situacao||"sem situação")}${l.agendamento?", consulta "+esc(fmtData(l.agendamento)):""})`).join("; ")}.<br>Ao salvar, ${ms.length>1?"esses lançamentos serão riscados":"esse lançamento será riscado"} e o lead fica em ${esc(nomeMes(mes))} com a observação "Lead de ${esc(ms.map(l=>nomeMes(l.mes).toLowerCase()).join(", "))}".${ms.some(R.pres)?" <b>Atenção:</b> o lançamento antigo tem presença; ao riscar, essa presença deixa de contar naquele mês.":""}</div></div>`;
   if(mesmo.length)h+=`<div class="banner bad" style="margin-top:10px">Este número já está lançado em ${esc(nomeMes(mes))}. Abra o lead existente em vez de lançar de novo.</div>`;
   return h}
- 
+
 /* ---------------- gaveta de edição ---------------- */
 function acharLead(key){for(const k of [S.mes,...MESES]){const l=leadsDo(k).find(x=>x.key===key);if(l)return l}return null}
 function renderDrawer(){const root=document.getElementById("drawer-root");const l=S.sel&&acharLead(S.sel.key);
@@ -521,7 +520,7 @@ async function importarNovembro(){const b=document.getElementById("btn-imp"),pg=
       await new Promise(r=>setTimeout(r,60));}
     await lock.set({feito:true,quando:new Date().toISOString(),total:j.linhas.length});pg.textContent=" Pronto!";toast("Novembro importado.")}
   catch(e){b.disabled=false;pg.textContent=" Parou ("+(e&&e.code)+"). Clique de novo para continuar.";}}
- 
+
 /* ---------------- FUNIL ---------------- */
 function filtraF(ls){const f=S.ff;return ls.filter(l=>(!f.cidade||(f.cidade==="Sem cidade"?!l.cidade:l.cidade===f.cidade))&&(!f.canal||l.canal===f.canal)&&(!f.interesse||l.interesse===f.interesse)&&(!f.resp||l.resp===f.resp))}
 function tabela(cab,linhas,tot){return `<div class="tablewrap"><table><thead><tr>${cab.map((c,i)=>`<th${i?' class="n"':""}>${esc(c)}</th>`).join("")}</tr></thead><tbody>${linhas.map(r=>`<tr>${r.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`).join("")}${tot?`<tr class="tot">${tot.map((c,i)=>`<td${i?' class="n"':""}>${c}</td>`).join("")}</tr>`:""}</tbody></table></div>`}
@@ -565,7 +564,7 @@ function vFunil(){const mes=S.mes,ls0=ativos(mes),ls=filtraF(ls0),m=met(ls,mes),
   h+=`<div class="card"><h2>Leads e agendados por dia de entrada</h2>${barras(dias,["var(--line)","var(--info)"],["Leads","Agendados"],{h:200})}</div>`;
   return h}
 function kpi(t,v,sub,cor,delta){return `<div class="kpi" style="--k:${cor}"><span>${esc(t)}</span><b>${v}</b><em>${sub||"&nbsp;"}${delta||""}</em></div>`}
- 
+
 /* ---------------- gráficos SVG ---------------- */
 function escala(max){if(max<=0)return [1,[0,1]];const p=Math.pow(10,Math.floor(Math.log10(max)));let st=[1,2,2.5,5,10].map(x=>x*p).find(s=>max/s<=5);const top=Math.ceil(max/st)*st;const ticks=[];for(let v=0;v<=top+1e-9;v+=st)ticks.push(v);return [top,ticks]}
 function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(o.bw||26)),H=o.h||220,pl=o.money?70:40,pb=26,pt=10,pr=10;
@@ -576,7 +575,7 @@ function barras(dados,cores,nomes,o){o=o||{};const W=Math.max(560,dados.length*(
   dados.forEach((d,i)=>{const x0=pl+gw*i+(gw-bw*n)/2;d.v.forEach((v,j)=>{if(v>0)s+=`<rect x="${x0+j*bw}" y="${y(v)}" width="${bw-2}" height="${Math.max(0,y(0)-y(v))}" rx="2" fill="${cores[j]}"><title>${esc(d.label)} · ${esc(nomes[j])}: ${fmt(v)}</title></rect>`});
     s+=`<text x="${pl+gw*i+gw/2}" y="${H-8}" text-anchor="middle">${esc(d.label)}</text>`});
   s+=`</svg>`;return `<div style="overflow-x:auto">${s}</div><div class="legend">${nomes.map((nm,j)=>`<span><i style="background:${cores[j]}"></i>${esc(nm)}</span>`).join("")}</div>`}
- 
+
 /* ---------------- ADMINISTRATIVO ---------------- */
 function admMes(k){const a=S.adm[k]||{};const inv=a.invest||{};const val=a.valores||{};
   const investido=["principal","paralela","outros","semdiv"].reduce((s,c)=>s+(+inv[c]||0),0);
@@ -616,14 +615,16 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
        <td class="n"><input class="money" id="v-${esc(l.key)}" inputmode="decimal" data-a="valor" data-k="${esc(l.key)}" value="${val[l.key]!=null?String(val[l.key]).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td></tr>`).join("")}
      </tbody></table></div>`:`<div class="empty">Nenhum paciente com presença ${S.adm_soSemValor?"sem valor ":""}neste mês.</div>`}</div>`}
   return h}
- 
+
 /* ---- Responsáveis pelos agendamentos: importar da planilha de metas do comercial ---- */
 const ABAS_RESP=[[/^VINI(CIUS)?$/,"Vinícius"],[/^SAMI|^SAMARA$/,"Samara"],[/^BER(NARDO)?$/,"Bernardo"]];
 function abaParaNome(t){const n=semAc(String(t||"")).toUpperCase().trim();for(const [re,nome] of ABAS_RESP)if(re.test(n))return nome;return null}
 function mesDoArquivo(nome){const n=semAc(nome).toLowerCase();for(let i=0;i<12;i++)if(n.includes(semAc(MES_NOME[i]).toLowerCase())){const k="2026-"+String(i+1).padStart(2,"0");if(MESES.includes(k))return k}
   const m=n.match(/^(\d{1,2})[.\s_-]/);if(m){const k="2026-"+String(+m[1]).padStart(2,"0");if(MESES.includes(k))return k}return null}
 const codsDe=x=>new Set((String(x||"").match(/(?<!\d)\d{2,7}(?!\d)/g)||[]).map(c=>c.replace(/^0+/,"")).filter(Boolean));
- 
+// COD do lead: no histórico ele fica no começo da observação ("13197 | nome"); datas e outros números da observação não contam
+const codsLead=l=>new Set([...codsDe(l.live?l.cod:String(l.obs||"").split(/[|·]/)[0])].filter(c=>c.length>=3));
+
 // datas da planilha de metas: texto dd/mm/aaaa; células de data vieram com dia e mês trocados (Excel em inglês)
 function dataPlan(x){const p2=n=>String(n).padStart(2,"0");
   if(typeof x==="number"&&x>20000&&x<80000){const d=XLSX.SSF.parse_date_code(x);if(!d)return "";return d.d<=12?`${d.y}-${p2(d.d)}-${p2(d.m)}`:`${d.y}-${p2(d.m)}-${p2(d.d)}`}
@@ -646,26 +647,29 @@ function lerAbasMetas(wb){const out=[];
     const iV=ix("via"),iD=ix("data"),iCi=ix("cidade"),iSi=ix("situacao"),iA=ix("agendamento"),iS=ix("status"),iE=ix("especialidade");
     const v=(r,i)=>i>=0?String(r[i]??"").replace(/\s+/g," ").trim():"";
     for(const r of rows.slice(hi+1)){const telBruto=String(r[iT]??"").replace(/\.0+$/,"").trim();const tel=tel8(telBruto);const cv=r[iC];const cod=cv===""||cv==null?"":String(typeof cv==="number"?Math.trunc(cv):cv).trim();
-      if(!tel&&!cod)continue;out.push({aba:t,nome,tel,telBruto,cod,cods:codsDe(cod),quem:iQ>=0?String(r[iQ]||"").trim():"",
+      if(!tel&&!cod)continue;out.push({aba:t,nome,tel,telBruto,cod,cods:new Set([...codsDe(cod)].filter(c=>c.length>=3)),quem:iQ>=0?String(r[iQ]||"").trim():"",
         via:v(r,iV),data:dataPlan(r[iD]),cidade:v(r,iCi),sit:v(r,iSi),ag:dataPlan(r[iA]),status:v(r,iS),esp:v(r,iE)})}}
   return out}
-function cruzarResp(linhas,mes){const idxT={},idxC={};const pode=l=>noGrupoAg(l)||R.agend(l);
-  for(const k of MESES)for(const l of ativos(k)){if(!pode(l))continue;const t=tel8(l.contato);if(t)(idxT[t]=idxT[t]||[]).push(l);
-    for(const c of codsDe((l.cod||"")+" "+(l.live?"":l.obs||"")))(idxC[c]=idxC[c]||[]).push(l)}
+function cruzarResp(linhas,mes){const idxT={},idxC={};
+  for(const k of MESES)for(const l of ativos(k)){const t=tel8(l.contato);if(t)(idxT[t]=idxT[t]||[]).push(l);
+    for(const c of codsLead(l))(idxC[c]=idxC[c]||[]).push(l)}
   const atrib={},porPessoa={},conflito=new Set(),novos=[];let thaina=0;
   for(const x of linhas){const pp=porPessoa[x.nome]=porPessoa[x.nome]||{linhas:0,achou:0,sem:0};pp.linhas++;if(/thain/i.test(semAc(x.quem)))thaina++;
     const c=new Map();for(const l of (x.tel&&idxT[x.tel])||[])c.set(l.key,l);for(const cd of x.cods)for(const l of idxC[cd]||[])c.set(l.key,l);
     let alvo=[...c.values()].filter(l=>(l.agendamento||"").slice(0,7)===mes);if(!alvo.length)alvo=[...c.values()].filter(l=>l.mes===mes);
     if(!alvo.length){pp.sem++;novos.push(x);continue}pp.achou++;
     const stP=["Presença","Faltoso","Cancelado"].find(s=>semAc(s).toLowerCase()===semAc(x.status).toLowerCase())||"";
-    for(const l of alvo){const a=atrib[l.key];if(a&&a.nome!==x.nome)conflito.add(l.key);else atrib[l.key]={l,nome:x.nome,st:(a&&a.st)||stP}}}
+    const snP=semAc(x.sit).toLowerCase();const agendouP=!snP.startsWith("perdeu")&&!snP.startsWith("em contato");
+    for(const l of alvo){const a=atrib[l.key];if(a&&a.nome!==x.nome)conflito.add(l.key);
+      else atrib[l.key]={l,nome:x.nome,st:(a&&a.st)||stP,agendar:(a&&a.agendar)||(agendouP&&!noGrupoAg(l)&&!R.agend(l)?{ag:x.ag&&x.ag.slice(0,4)==="2026"?x.ag:""}:null)}}}
   for(const k of conflito)delete atrib[k];
   const lista=Object.values(atrib);const mudam=lista.filter(a=>agendadorNome(a.l)!==a.nome).length;
   const statusNovos=lista.filter(a=>a.st&&!a.l.status&&!["Presença","Faltoso","Cancelado"].includes(a.l.situacao)).length;
   // mesmo paciente repetido entre as abas: cria um só (fica com a 1ª aba)
-  const vistos=new Set(),novosU=[];for(const x of novos){const k=x.tel||("c"+[...x.cods][0]);if(vistos.has(k))continue;vistos.add(k);novosU.push(x)}
+  const vistos=new Set(),novosU=[];for(const x of novos){const ks=[x.tel&&"t"+x.tel,...[...x.cods].map(c=>"c"+c)].filter(Boolean);if(!ks.length||ks.some(k=>vistos.has(k)))continue;ks.forEach(k=>vistos.add(k));novosU.push(x)}
   const porCanal={};for(const x of novosU){const c=CANAL_PLAN(x.via);porCanal[c]=(porCanal[c]||0)+1}
-  return {mes,porPessoa,lista,conflitos:conflito.size,thaina,mudam,novos:novosU,porCanal,statusNovos}}
+  const agendar=lista.filter(a=>a.agendar).length;
+  return {mes,porPessoa,lista,conflitos:conflito.size,thaina,mudam,novos:novosU,porCanal,statusNovos,agendar}}
 async function importarResp(file){if(!S.isAdm)return;const mes=S.respMes||mesDoArquivo(file.name)||S.mes;S.respMes=mes;
   try{await carregar(LIB.xlsx);const buf=await file.arrayBuffer();const wb=XLSX.read(buf,{type:"array"});
     const linhas=lerAbasMetas(wb);if(!linhas.length){toast("Não achei as abas VINI, SAMI ou BER (com as colunas Telefone e COD) nessa planilha.");return}
@@ -675,10 +679,14 @@ async function aplicarResp(){const p=S.respPrev;if(!p||!S.isAdm)return;const b=d
   let n=0;const hist={};
   const semSt=a=>a.st&&!a.l.status&&!["Presença","Faltoso","Cancelado"].includes(a.l.situacao);let nSt=0;const histSt={};
   try{for(const a of p.lista){if(a.l.live){const up={};if(a.l.agPor!==a.nome)up.agPor=a.nome;
-        if(semSt(a)){up.status=a.st;up.notas=[...a.l.notas,{u:"import",t:new Date().toISOString(),de:a.l.situacao||"",para:a.l.situacao||"",st:a.st,txt:"Status da planilha de metas do comercial"}].slice(-60);nSt++}
+        if(a.agendar){up.situacao="Agendado";if(!a.l.agendamento&&a.agendar.ag)up.agendamento=a.agendar.ag;if(a.st&&!a.l.status)up.status=a.st;
+          up.notas=[...a.l.notas,{u:"import",t:new Date().toISOString(),de:"Agendado",para:"Agendado",st:a.st||"",txt:"Agendamento conforme a planilha de metas do comercial"}].slice(-60)}
+        else if(semSt(a)){up.status=a.st;up.notas=[...a.l.notas,{u:"import",t:new Date().toISOString(),de:a.l.situacao||"",para:a.l.situacao||"",st:a.st,txt:"Status da planilha de metas do comercial"}].slice(-60);nSt++}
         if(Object.keys(up).length){await serial(a.l.key,()=>S.db.doc("m/"+a.l.mes+"/leads/"+a.l.id).update(up));n++}}
-      else{(hist[a.l.mes]=hist[a.l.mes]||{})[a.l.key]=a.nome;if(semSt(a)&&S.isOwner){(histSt[a.l.mes]=histSt[a.l.mes]||{})[+a.l.key.split("-").pop()]=a.st;nSt++}}}
-    for(const [m,st] of Object.entries(histSt)){const arr=S.hist.meses[m].map(x=>x.slice(0,11));for(const [i,v] of Object.entries(st))if(arr[i]&&!arr[i][6])arr[i][6]=v;
+      else{(hist[a.l.mes]=hist[a.l.mes]||{})[a.l.key]=a.nome;const ix=+a.l.key.split("-").pop();
+        if(S.isOwner&&(a.agendar||semSt(a))){(histSt[a.l.mes]=histSt[a.l.mes]||{})[ix]={st:a.st,agendar:a.agendar};nSt++}}}
+    for(const [m,st] of Object.entries(histSt)){const arr=S.hist.meses[m].map(x=>x.slice(0,11));
+      for(const [i,v] of Object.entries(st)){const r=arr[i];if(!r)continue;if(v.agendar){r[5]="Agendado";if(!r[8]&&v.agendar.ag)r[8]=v.agendar.ag}if(v.st&&!r[6])r[6]=v.st}
       await S.db.doc("hist/"+m).set({json:JSON.stringify(arr)});S.hist.meses[m]=arr}
     for(const [m,mapa] of Object.entries(hist)){const atual=(S.resp&&S.resp[m])||{};const novo={...atual,...mapa};
       n+=Object.keys(mapa).filter(k=>atual[k]!==mapa[k]).length;await S.db.doc("resp/"+m).set({mapa:novo,em:new Date().toISOString(),por:S.me||""});S.resp[m]=novo}
@@ -693,16 +701,49 @@ async function aplicarResp(){const p=S.respPrev;if(!p||!S.isAdm)return;const b=d
         S.hist.meses[p.mes]=arr;S.resp[p.mes]=mapa}}
     toast(`Pronto: ${NUM.format(n)} leads atualizados${nSt?` (${NUM.format(nSt)} com status da planilha)`:""}${criados?` e ${NUM.format(criados)} incluídos`:""} em ${nomeMes(p.mes)}.`);S.respPrev=null;render()}
   catch(e){tratarErro(e);if(b)b.disabled=false}}
+
+/* ---- corrigir duplicidades criadas pela importação da planilha de metas ---- */
+const ehImportado=l=>!!(l.importadoMetas||/Importado da planilha de metas/.test(l.obs||""));
+function planoLimpeza(mes){const ls=ativos(mes);const d=dupsDe(ls);const grupos={};
+  for(const k of d.set){const r=d.orig[k];(grupos[r.key]=grupos[r.key]||[r]).push(ls.find(x=>x.key===k))}
+  const acoes=[];
+  for(const g of Object.values(grupos)){const orig=g.filter(l=>!ehImportado(l));const fica=orig[0]||g[0];
+    const sai=g.filter(l=>l!==fica&&ehImportado(l));if(sai.length)acoes.push({fica,sai})}
+  return acoes}
+async function limparDupImport(mes){if(!S.isAdm)return;const acoes=planoLimpeza(mes);if(!acoes.length)return;
+  if(!isLive(mes)&&!S.isOwner){toast("Só a Nicele pode corrigir meses antigos.");return}
+  const b=document.querySelector('[data-a="limpadup"]');if(b)b.disabled=true;
+  const t=new Date().toISOString();let n=0;const riscH={},mapa={...((S.resp&&S.resp[mes])||{})};let mudouMapa=false;const histPatch={};
+  try{for(const {fica,sai} of acoes){
+      // o que fica herda responsável, agendamento e status do importado, se não tiver
+      const ref=sai.find(l=>agendadorNome(l))||sai[0];const nomeR=agendadorNome(ref);
+      const patch={};if(nomeR&&!agendadorNome(fica))patch.agPor=nomeR;
+      if(!noGrupoAg(fica)&&!R.agend(fica)&&(noGrupoAg(ref)||R.agend(ref))){patch.situacao="Agendado";if(ref.agendamento)patch.agendamento=ref.agendamento}
+      if(!fica.status&&ref.status)patch.status=ref.status;
+      if(Object.keys(patch).length){
+        if(fica.live)await serial(fica.key,()=>S.db.doc("m/"+fica.mes+"/leads/"+fica.id).update({...patch,notas:[...fica.notas,{u:"import",t,de:fica.situacao||"",para:patch.situacao||fica.situacao||"",st:patch.status||"",txt:"Dados do lançamento duplicado da importação"}].slice(-60)}));
+        else{if(patch.agPor){mapa[fica.key]=patch.agPor;mudouMapa=true}histPatch[+fica.key.split("-").pop()]=patch}}
+      for(const l of sai){const info={para:mes,id:fica.id||"",em:t,por:S.me||"",motivo:"Duplicado da importação da planilha de metas"};
+        if(l.live)await serial(l.key,()=>S.db.doc("m/"+l.mes+"/leads/"+l.id).update({riscado:info,notas:[...l.notas,{u:S.me||"",t,de:l.situacao||"",para:l.situacao||"",st:"",txt:"Riscado: duplicado da importação da planilha de metas"}].slice(-60)}));
+        else riscH[l.key]=info;n++}}
+    if(Object.keys(riscH).length)await serial("risc/"+mes,()=>S.db.doc("risc/"+mes).set({itens:{...(S.risc[mes]||{}),...riscH}}));
+    if(Object.keys(histPatch).length){const arr=S.hist.meses[mes].map(x=>x.slice(0,11));for(const [i,p] of Object.entries(histPatch)){const r=arr[i];if(!r)continue;if(p.situacao)r[5]=p.situacao;if(p.agendamento&&!r[8])r[8]=p.agendamento;if(p.status&&!r[6])r[6]=p.status}
+      await S.db.doc("hist/"+mes).set({json:JSON.stringify(arr)});S.hist.meses[mes]=arr}
+    if(mudouMapa){await S.db.doc("resp/"+mes).set({mapa,em:t,por:S.me||""});S.resp[mes]=mapa}
+    toast(`${NUM.format(n)} lançamentos duplicados da importação foram riscados em ${nomeMes(mes)}.`);render()}
+  catch(e){tratarErro(e);if(b)b.disabled=false}}
 function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.respMes||S.mes;
   const ops=MESES.filter(k=>k<=mesAtual).map(k=>`<option value="${k}"${k===mesSel?" selected":""}>${esc(nomeMes(k))}</option>`).join("");
   let h=`<div class="card"><h2>Responsáveis pelos agendamentos <small>planilha de metas do comercial</small></h2>
    <p class="small muted" style="margin-top:0">Envie a planilha do mês. Cada paciente das abas <b>VINI</b>, <b>SAMI</b> e <b>BER/Bernardo</b> vira agendamento de Vinícius, Samara ou Bernardo no Funil, pelo telefone ou COD. Vale para as metas e o ranking.</p>
    <div class="row" style="gap:10px;align-items:flex-end;flex-wrap:wrap"><label class="f" for="resp-mes">Mês da planilha<select id="resp-mes" data-a="respmes">${ops}</select></label>
    <label class="f" for="resp-file">Planilha (.xlsx)<input id="resp-file" type="file" accept=".xlsx,.xls" data-a="respfile"></label></div>`;
+  {const ac=planoLimpeza(mesSel);const n=ac.reduce((a,x)=>a+x.sai.length,0);
+   if(n)h+=`<div class="banner warn" style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>${NUM.format(n)} lançamento${n>1?"s":""} duplicado${n>1?"s":""} pela importação</b> em ${esc(nomeMes(mesSel))}: o mesmo paciente já estava no Funil. Ao corrigir, a cópia importada é riscada (deixa de contar) e o lançamento que fica recebe o responsável e o status dela.</span><button class="btn pri" data-a="limpadup" data-m="${mesSel}">Corrigir duplicados</button></div>`}
   if(p){const linhasT=Object.entries(p.porPessoa).map(([n,x])=>`<tr><td>${esc(n)}</td><td class="n">${NUM.format(x.linhas)}</td><td class="n"><b>${NUM.format(x.achou)}</b></td><td class="n">${NUM.format(x.sem)}</td></tr>`).join("");
     h+=`<div class="banner info" style="margin-top:12px">Arquivo <b>${esc(p.arquivo)}</b> · abas ${esc(p.abas.join(", "))} · comparado com os leads agendados para <b>${esc(nomeMes(p.mes))}</b>.</div>
      <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Aba → responsável</th><th class="n">Pacientes na aba</th><th class="n">Achados no Funil</th><th class="n">Não estão no Funil</th></tr></thead><tbody>${linhasT}</tbody></table></div>
-     <div class="small muted" style="margin-top:8px"><b>${NUM.format(p.lista.length)}</b> leads recebem responsável (${NUM.format(p.mudam)} mudam).${p.statusNovos?` ${NUM.format(p.statusNovos)} estavam sem status no Funil e recebem o status da planilha (Presença, Faltoso ou Cancelado); status já lançado não muda.`:""}${p.conflitos?` <b>${NUM.format(p.conflitos)}</b> leads aparecem em duas abas e ficaram como estão.`:""}${p.thaina?` ${NUM.format(p.thaina)} linhas têm "Thainá" na coluna Quem agendou e seguem a aba onde estão.`:""}</div>
+     <div class="small muted" style="margin-top:8px"><b>${NUM.format(p.lista.length)}</b> leads recebem responsável (${NUM.format(p.mudam)} mudam).${p.agendar?` ${NUM.format(p.agendar)} estavam no Funil como "Em contato" ou "Perdeu interesse" e passam para Agendado, como na planilha.`:""}${p.statusNovos?` ${NUM.format(p.statusNovos)} estavam sem status no Funil e recebem o status da planilha (Presença, Faltoso ou Cancelado); status já lançado não muda.`:""}${p.conflitos?` <b>${NUM.format(p.conflitos)}</b> leads aparecem em duas abas e ficaram como estão.`:""}${p.thaina?` ${NUM.format(p.thaina)} linhas têm "Thainá" na coluna Quem agendou e seguem a aba onde estão.`:""}</div>
      ${p.novos.length?`<div class="banner warn" style="margin-top:10px"><label style="display:flex;gap:8px;align-items:flex-start"><input type="checkbox" data-a="respcriar"${S.respCriar!==false?" checked":""}${!isLive(p.mes)&&!S.isOwner?" disabled":""}>
        <span><b>Incluir no Funil os ${NUM.format(p.novos.length)} pacientes que ainda não estão lá</b> (${esc(Object.entries(p.porCanal).map(([c,n])=>c+": "+n).join(" · "))}), já com o responsável da aba, situação, status e data da consulta da planilha.${!isLive(p.mes)&&!S.isOwner?" Só a Nicele pode incluir em meses antigos.":""}</span></label></div>`:""}
      <div class="row" style="gap:8px;margin-top:10px"><button class="btn pri" data-a="respaplicar"${p.lista.length||p.novos.length?"":" disabled"}>Aplicar no Funil</button><button class="btn" data-a="respcancel">Cancelar</button></div>`}
@@ -751,7 +792,7 @@ function barraExport(mes){return `<div class="row" style="gap:8px;align-items:ce
   <button class="btn" data-a="exp" data-v="rx">Resultado do mês · Excel</button><button class="btn" data-a="exp" data-v="rp">Resultado do mês · PDF</button></div>`}
 /* ---- INÍCIO ---- */
 function dlt(a,b,inv){if(!b)return "";const d=a/b-1;if(!isFinite(d))return "";const bom=inv?d<0:d>0;return `<span class="${bom?"pos":"neg"}">${d>=0?"▲":"▼"} ${pct(Math.abs(d))}</span>`}
- 
+
 /* ---- Ranking da equipe (aba Início) ---- */
 const diaLocal=d=>{const x=new Date(d);return isNaN(x)?"":x.getFullYear()+"-"+String(x.getMonth()+1).padStart(2,"0")+"-"+String(x.getDate()).padStart(2,"0")};
 const somaDias=(iso,n)=>diaLocal(new Date(new Date(iso+"T12:00").getTime()+n*864e5));
@@ -900,7 +941,7 @@ function calcMeta(l){const a=S.adm[l.mes]||{};const valor=+((a.valores||{})[l.ke
   const eleg=valor>=META.limpezaMin;const limp=mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
   const total=META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag:agendadorNome(l),midia:isMidia(l)}}
 const reais=v=>BRL.format(v);
- 
+
 /* ---- filtro da conferência de metas: colaborador + período ---- */
 function presencasPeriodo(ini,fim){const out=[];for(const m of MESES)for(const l of ativos(m)){if(!R.pres(l))continue;const d=l.agendamento||l.data||"";if(d>=ini&&d<=fim)out.push(l)}return out}
 function periodoMetas(K){const f=S.mf||{},p=f.p||"mes";
@@ -952,7 +993,7 @@ function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col
      <td class="n">${c.dup?'<span class="muted">–</span>':`<b>${reais(c.total)}</b>`}</td></tr>`).join("")}
    </tbody></table></div><p class="small muted" style="margin:10px 0 0">A presença conta no mês da consulta. A meta vai para quem mudou o lead para Agendado no app; leads da planilha antiga aparecem como "planilha".</p></div>`}
   return h}
-function marcarRepetidos(cs){const visto=new Set();for(const [l,c] of cs){const t=tel8(l.contato);const cd=[...codsDe(l.cod||(l.live?"":l.obs))][0];const ks=[t&&"t"+t,cd&&"c"+cd].filter(Boolean);
+function marcarRepetidos(cs){const visto=new Set();for(const [l,c] of cs){const t=tel8(l.contato);const cd=[...codsLead(l)][0];const ks=[t&&"t"+t,cd&&"c"+cd].filter(Boolean);
     if(ks.some(k=>visto.has(k))){c.dup=true;c.total=0;c.verificar=false}ks.forEach(k=>visto.add(k))}return cs}
 function textoMetas(K){const [ini,fim,rot]=periodoMetas(K);const cs=marcarRepetidos(presencasPeriodo(ini,fim).sort((a,b)=>(a.agendamento||"").localeCompare(b.agendamento||"")).map(l=>[l,calcMeta(l)])).filter(([,c])=>!c.dup);const por={};
   for(const [l,c] of cs){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total}
@@ -979,7 +1020,7 @@ function numBR(s){s=String(s).trim().replace(/[R$\s]/g,"");if(!s)return null;if(
 async function salvarAdm(k,mut){const ref=S.db.doc("adm/"+k);
   return serial("adm/"+k,async()=>{const novo=JSON.parse(JSON.stringify(S.adm[k]||{}));novo.invest=novo.invest||{};novo.valores=novo.valores||{};novo.metas=novo.metas||{};
     mut(novo);S.adm[k]=novo;await ref.set(novo)})}
- 
+
 /* ---------------- eventos ---------------- */
 document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a;
   if(a==="sit"){S.f.sit=t.dataset.v;S.f.res="";S.f.pend=false;S.f.risc=false;S.f.lim=150;render()}
@@ -1013,6 +1054,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="mflimpar"){S.mf={};render()}
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
+  else if(a==="limpadup"){limparDupImport(t.dataset.m)}
   else if(a==="respcancel"){S.respPrev=null;render()}
   else if(a==="rkhoje"){e.preventDefault();S.rk={p:"hoje"};render()}
   else if(a==="robotok"){const i=document.getElementById("robo-tok");const v=(i&&i.value||"").trim();
@@ -1094,7 +1136,7 @@ function vChaveRobo(){return `<div class="row" style="margin-top:14px;padding-to
   <label class="f" for="robo-tok" style="flex:1;min-width:240px">Chave do GitHub para o botão do robô<input id="robo-tok" type="password" autocomplete="off" placeholder="${S.roboTemChave?"Chave cadastrada · cole outra para trocar":"Cole aqui a chave (github_pat_...)"}"></label>
   <button class="btn" data-a="robotok">Salvar chave</button></div>
   <div class="small muted" style="margin-top:4px">Fica guardada no banco e só a gerência consegue ler. Nunca é mostrada na tela.</div>`}
- 
+
 /* ---- Robô de conferência de presenças (usado pelo Claude pelo navegador; só gerência) ---- */
 window.__robo={
   pendentes(ate){ate=ate||hoje;if(!S.isAdm)throw new Error("Só a gerência pode usar o robô.");
@@ -1118,10 +1160,9 @@ window.__robo={
       catch(e){res.pulados.push({id:it.id,motivo:"erro "+((e&&e.code)||e)})}}
     toast("Robô: "+res.gravados+" status gravados"+(res.pulados.length?", "+res.pulados.length+" pulados":"")+".");return res}
 };
- 
+
 window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
 </html>
- 
  
