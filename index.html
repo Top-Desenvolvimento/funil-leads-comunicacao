@@ -10,9 +10,9 @@
 <style>
 /* Layout: barra superior fixa com navegação + conteúdo em grade; gaveta lateral para editar o lead. */
 :root{
-  --bg:#f4f6f8; --card:#ffffff; --ink:#16202c; --muted:#5f6b7a; --line:#e2e6eb; --accent:#0f6e66; --accent-soft:#e3f2f0;
-  --ok:#1b7f4f; --ok-soft:#e1f3e9; --bad:#b93a2e; --bad-soft:#fbe6e3; --warn:#b26a00; --warn-soft:#fdf0d8; --info:#2459b8; --info-soft:#e4ecfb;
-  --grey-soft:#eceff3; --shadow:0 1px 2px rgba(16,24,40,.06),0 4px 16px rgba(16,24,40,.05);
+  --bg:#f7f5f2; --card:#ffffff; --ink:#2a2730; --muted:#6e6a75; --line:#ebe7e2; --accent:#5b4bb0; --accent-soft:#eeedfe;
+  --ok:#2f6b12; --ok-soft:#eaf3de; --bad:#a3374f; --bad-soft:#fbeaf0; --warn:#8a5a0c; --warn-soft:#faeeda; --info:#185fa5; --info-soft:#e6f1fb;
+  --grey-soft:#f1efe8; --shadow:0 1px 2px rgba(60,40,80,.04),0 6px 18px rgba(60,40,80,.05);
   --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",sans-serif; --f-num:"JetBrains Mono",ui-monospace,monospace;
   color-scheme:light;
 }
@@ -62,11 +62,11 @@ textarea{min-height:70px;resize:vertical}
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--card);border-color:var(--ink)}
 .chip .c{font-family:var(--f-num);font-size:11px;opacity:.8}
 .pill{display:inline-block;border-radius:999px;padding:2px 9px;font-size:12px;font-weight:600;white-space:nowrap}
-.p-contato{background:var(--grey-soft);color:var(--muted)}
-.p-agendado{background:var(--info-soft);color:var(--info)}
-.p-presenca{background:var(--ok-soft);color:var(--ok)}
-.p-faltoso{background:var(--bad-soft);color:var(--bad)}
-.p-cancelado,.p-perdeu{background:var(--grey-soft);color:var(--muted);text-decoration:line-through}
+.p-contato{background:#FAEEDA;color:#633806}
+.p-agendado{background:#EAF3DE;color:#27500A}
+.p-presenca{background:#E1F5EE;color:#085041}
+.p-faltoso{background:#FBEAF0;color:#72243E}
+.p-cancelado,.p-perdeu{background:#FCEBEB;color:#791F1F}.p-cancelado{background:#F1EFE8;color:#444441}
 .alert{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:3px}
 .a-bad{background:var(--bad)} .a-warn{background:var(--warn)} .a-dup{background:#e08a2c}
 .tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px}
@@ -102,7 +102,7 @@ svg.chart .grid{stroke:var(--line)}
 .drawer footer{padding:12px 20px;border-top:1px solid var(--line);display:flex;gap:8px;justify-content:space-between;flex-wrap:wrap}
 .stepper{display:flex;gap:6px;flex-wrap:wrap}
 .stepper button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:7px 10px;font-weight:600;cursor:pointer;font-size:13px}
-.stepper button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.stepper button{border-radius:999px}.stepper button[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 .form2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .timeline{border-left:2px solid var(--line);margin-left:6px;padding-left:14px;display:flex;flex-direction:column;gap:10px}
 .timeline div{position:relative;font-size:13px}
@@ -143,6 +143,13 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
 tr.dup td{background:var(--bad-soft)!important}tr.dup td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.tag.dupt{background:var(--bad);color:#fff;font-weight:700;white-space:nowrap}
 tr.dup2 td{background:var(--warn-soft)!important}tr.dup2 td:first-child{box-shadow:inset 4px 0 0 var(--warn)}.tag.dupt2{background:var(--warn);color:#fff;font-weight:700;white-space:nowrap}
 .selresp{font-size:12px;padding:3px 6px;min-width:96px}
+.pp{display:inline-flex;align-items:center;gap:4px;border:0;border-radius:999px;padding:3px 10px;font-size:12px;font-weight:600;white-space:nowrap;line-height:1.5;background:var(--grey-soft);color:var(--ink)}
+button.pp{cursor:pointer}button.pp:hover{filter:brightness(.97);box-shadow:0 0 0 1px rgba(60,40,80,.12)}.pp0{background:transparent;color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.ppv{font-size:9px;opacity:.6}.f>.pp{align-self:flex-start;min-height:30px}
+.ppmenu{position:absolute;z-index:60;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:6px;min-width:180px;max-height:340px;overflow:auto;box-shadow:0 10px 30px rgba(60,40,80,.16),0 2px 6px rgba(60,40,80,.08)}
+.ppop{display:flex;width:100%;border:0;background:transparent;padding:4px 6px;border-radius:8px;cursor:pointer;text-align:left}.ppop:hover,.ppop:focus-visible,.ppop.sel{background:var(--grey-soft)}
+.pplimpa{border-top:1px solid var(--line);border-radius:0 0 8px 8px;margin-top:4px;padding:8px 8px 4px;font-size:12px;color:var(--muted)}
+div.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
 </style>
 </head>
 <body>
@@ -315,6 +322,46 @@ async function pedirNomes(){if(!S.user||nomesPend)return;const ids=new Set();
   nomesPend=false;agendarRender()}
 function renderWho(){const w=document.getElementById("who");const n=S.me?(S.names[S.me]||"Você"):"Não conectado";
   w.innerHTML=`<span class="nm">${esc(n)}${S.isOwner?' · administradora':(S.isAdm?' · gerência':'')}</span><span class="avatar" aria-hidden="true">${esc(iniciais(n))}</span>`}
+
+/* ---- pílulas pastel com menu suspenso ---- */
+const PAST={rosa:["#FBEAF0","#72243E"],pessego:["#FAECE7","#712B13"],manteiga:["#FAEEDA","#633806"],menta:["#EAF3DE","#27500A"],agua:["#E1F5EE","#085041"],
+  ceu:["#E6F1FB","#0C447C"],lavanda:["#EEEDFE","#3C3489"],cinza:["#F1EFE8","#444441"],coral:["#FCEBEB","#791F1F"],lilas:["#F4E8FB","#5B2A7A"]};
+const PCOR={
+  canal:{"Principal":"ceu","Paralela":"rosa","Site":"manteiga","Empresas":"pessego","Google":"agua","YouTube":"coral","TikTok":"cinza","Pinterest":"rosa","Instagram":"lavanda","Facebook":"ceu","WhatsApp (anúncios)":"menta","Orgânico":"menta","Indicação":"lilas","Disparo":"pessego","Outros":"cinza"},
+  cidade:{"Caxias":"rosa","Farroupilha":"pessego","Flores da Cunha":"manteiga","Bento Gonçalves":"menta","Veranópolis":"lavanda","Encantado":"agua","Soledade":"ceu","Fora da área":"coral","Outra cidade":"cinza"},
+  interesse:{"Aparelho":"ceu","Implante":"manteiga","Facetas":"menta","Clínico geral":"rosa"},
+  situacao:{"Em contato":"manteiga","Agendado":"menta","Presença":"agua","Faltoso":"rosa","Cancelado":"cinza","Perdeu interesse":"coral"},
+  status:{"Presença":"menta","Faltoso":"rosa","Cancelado":"cinza"},
+  fechou:{"Sim":"menta","Não":"manteiga"},
+  agPor:{"Thainá":"lilas","Vinícius":"ceu","Samara":"rosa","Bernardo":"agua"}};
+const POPC={canal:()=>OPC.canal,cidade:()=>OPC.cidade,interesse:()=>OPC.interesse,situacao:()=>["Em contato","Agendado","Perdeu interesse"],status:()=>OPC.status,fechou:()=>["Sim","Não"],agPor:()=>EQUIPE};
+const ROT={canal:"Canal",cidade:"Cidade",interesse:"Interesse",situacao:"Situação",status:"Status",fechou:"Fechou",agPor:"Responsável"};
+const corDe=(c,v)=>PAST[(PCOR[c]||{})[v]]||null;
+const pstyle=(c,v)=>{const k=corDe(c,v);return k?`background:${k[0]};color:${k[1]}`:""};
+// pílula: editável abre o menu; senão só mostra
+function pp(c,v,key,edit,vazio){const st=pstyle(c,v);if(!edit)return v?`<span class="pp" style="${st}">${esc(v)}</span>`:"";
+  return `<button type="button" class="pp${v?"":" pp0"}" style="${st}" data-a="ppopen" data-c="${c}" data-k="${esc(key)}" data-v="${esc(v||"")}" aria-haspopup="listbox">${esc(v||vazio||"–")}<span class="ppv" aria-hidden="true">▾</span></button>`}
+function fecharPP(){const m=document.getElementById("ppmenu");if(m)m.remove()}
+function abrirPP(btn){fecharPP();const c=btn.dataset.c,key=btn.dataset.k,atual=btn.dataset.v;const filtro=key.startsWith("f:");
+  let ops=POPC[c]?POPC[c]():[];if(filtro&&c==="status")ops=[...ops,"Sem resultado"];
+  const m=document.createElement("div");m.id="ppmenu";m.className="ppmenu";m.setAttribute("role","listbox");
+  m.innerHTML=ops.map(v=>`<button type="button" class="ppop${v===atual?" sel":""}" role="option" data-a="ppsel" data-v="${esc(v)}"><span class="pp" style="${pstyle(c,v)||"background:var(--grey-soft)"}">${esc(v)}</span></button>`).join("")
+    +`<button type="button" class="ppop pplimpa" data-a="ppsel" data-v="">${filtro?"Mostrar todos":"Limpar"}</button>`;
+  m.dataset.c=c;m.dataset.k=key;document.body.appendChild(m);
+  const r=btn.getBoundingClientRect();const w=m.offsetWidth,hh=m.offsetHeight;let x=r.left+window.scrollX,y=r.bottom+window.scrollY+6;
+  if(r.left+w>window.innerWidth-8)x=window.innerWidth-w-8+window.scrollX;if(r.bottom+hh+8>window.innerHeight&&r.top-hh-6>0)y=r.top+window.scrollY-hh-6;
+  m.style.left=x+"px";m.style.top=y+"px";const f=m.querySelector(".sel")||m.querySelector(".ppop");if(f)f.focus()}
+async function escolherPP(m,v){const c=m.dataset.c,key=m.dataset.k;fecharPP();
+  if(key.startsWith("f:")){const k=key.slice(2);S.f[k]=(k==="st"&&v==="Sem resultado")?"__sem":v;S.f.lim=150;render();return}
+  if(key.startsWith("d:")){if(S.sel&&S.sel.draft){S.sel.draft[c]=v;renderDrawer()}return}
+  if(c==="agPor"){trocarResp(key,v);return}
+  const l=acharLead(key);if(!l||!l.live||!podeEscrever()||riscoDe(l))return;
+  const antes=l[c]||"";if(antes===v)return;const up={[c]:v};
+  if(c==="status"&&v&&!noGrupoAg(l))up.situacao="Agendado";
+  if(c==="situacao"&&v!=="Agendado"&&l.status)up.status="";
+  const t=new Date().toISOString();const para=up.situacao||(c==="situacao"?v:l.situacao)||"";
+  up.notas=[...l.notas,{u:S.me||"",t,de:l.situacao||"",para,st:c==="status"?v:"",txt:`${ROT[c]}: ${antes||"–"} → ${v||"–"}`}].slice(-60);up.atualizado=t;up.atualizadoPor=S.me||"";
+  try{await serial(l.key,()=>S.db.doc("m/"+l.mes+"/leads/"+l.id).update(up));if(c==="situacao"&&v==="Agendado"&&!l.agendamento)toast("Agendado: abra o lead e preencha a data da consulta.")}catch(e){tratarErro(e)}}
 const podeEscrever=()=>!!S.db&&S.canWrite!==false&&!S.readOnlyForced;
 function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600)}
 const filas={};function serial(key,fn){const p=(filas[key]||Promise.resolve()).then(fn,fn);filas[key]=p.catch(()=>{});return p}
@@ -374,15 +421,15 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
   h+=`<div class="card"><h2>Leads de ${nomeMes(mes)} <small>clique em um lead para atualizar o funil</small></h2>
   <div class="row" style="margin-bottom:10px">
     <label class="f" for="fb">Buscar<input id="fb" data-a="f" data-k="busca" placeholder="telefone, código, observação" value="${esc(f.busca)}"></label>
-    <label class="f" for="fci">Cidade<select id="fci" data-a="f" data-k="cidade">${opts(OPC.cidade,f.cidade,"Todas")}</select></label>
-    <label class="f" for="fca">Canal<select id="fca" data-a="f" data-k="canal">${opts(OPC.canal,f.canal,"Todos")}</select></label>
-    <label class="f" for="fin">Interesse<select id="fin" data-a="f" data-k="interesse">${opts(OPC.interesse,f.interesse,"Todos")}</select></label>
-    <label class="f" for="fst">Resultado da consulta<select id="fst" data-a="f" data-k="st"><option value="">Todos</option>${["Presença","Faltoso","Cancelado"].map(x=>`<option${f.st===x?" selected":""}>${x}</option>`).join("")}<option value="__sem"${f.st==="__sem"?" selected":""}>Sem resultado</option></select></label>
+    <div class="f"><span>Cidade</span>${pp("cidade",f.cidade,"f:cidade",true,"Todas")}</div>
+    <div class="f"><span>Canal</span>${pp("canal",f.canal,"f:canal",true,"Todos")}</div>
+    <div class="f"><span>Interesse</span>${pp("interesse",f.interesse,"f:interesse",true,"Todos")}</div>
+    <div class="f"><span>Resultado da consulta</span>${pp("status",f.st==="__sem"?"Sem resultado":f.st,"f:st",true,"Todos")}</div>
     <label class="f" for="fed">Entrada de<input type="date" id="fed" data-a="f" data-k="eDe" value="${esc(f.eDe)}"></label>
     <label class="f" for="fea">até<input type="date" id="fea" data-a="f" data-k="eAte" value="${esc(f.eAte)}"></label>
     <label class="f" for="fcd">Consulta de<input type="date" id="fcd" data-a="f" data-k="cDe" value="${esc(f.cDe)}"></label>
     <label class="f" for="fca2">até<input type="date" id="fca2" data-a="f" data-k="cAte" value="${esc(f.cAte)}"></label>
-    <label class="f" for="fre">Responsável<select id="fre" data-a="f" data-k="resp"><option value="">Todos</option>${live?`<option value="__eu"${f.resp==="__eu"?" selected":""}>Meus leads</option>`:""}${[...new Set([...EQUIPE,...ls.map(respNome).filter(Boolean)])].map(r=>`<option value="${esc(r)}"${f.resp===r?" selected":""}>${esc(r)}</option>`).join("")}</select></label>
+    <div class="f"><span>Responsável</span>${pp("agPor",f.resp,"f:resp",true,"Todos")}</div>
   </div>
   ${dups.set.size?`<div class="banner bad" style="margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap"><span><b>${NUM.format(dups.prim.size)} paciente${dups.prim.size>1?"s":""} lançado${dups.prim.size>1?"s":""} em duplicidade</b> neste mês (mesmo telefone ou COD). Em <b>vermelho</b>, o 1º lançamento; em <b>amarelo</b>, o lançamento repetido: verifiquem quem agendou por engano e peçam a exclusão.</span><button class="btn" data-a="dupf">${f.dup?"Mostrar todos":"Ver só as duplicidades"}</button></div>`:""}
   <div class="chips" style="margin-bottom:12px">
@@ -400,12 +447,12 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
   if(!vis.length)h+=`<div class="empty">${live&&!S.liveReady[mes]&&S.db?"Carregando lançamentos…":"Nenhum lead com esses filtros."}</div>`;
   else{h+=`<div class="tablewrap"><table><thead><tr><th></th><th>Data</th><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Situação</th><th>Status</th><th>Consulta</th><th>COD / Observação</th><th>Responsável</th></tr></thead><tbody>`;
     for(const l of vis.slice(0,f.lim)){const rk=riscoDe(l);const a=rk?[]:alertas(l,dups);const so=solicDe(l.key);
-      const dp=!rk&&dups.set.has(l.key)?dups.orig[l.key]:null;const d1=!rk&&!dp&&dups.prim.has(l.key);
+      const edL=l.live&&!rk&&podeEscrever();const dp=!rk&&dups.set.has(l.key)?dups.orig[l.key]:null;const d1=!rk&&!dp&&dups.prim.has(l.key);
       h+=`<tr class="click${rk?" risc":""}${d1?" dup":""}${dp?" dup2":""}" tabindex="0" data-a="abrir" data-k="${esc(l.key)}"><td title="${esc(a.map(x=>x[1]).join(" · "))}">${d1?`<span class="tag dupt" title="Primeiro lançamento deste telefone/COD no mês">DUPLICADO · 1º lançamento</span> `:""}${dp?`<span class="tag dupt2" title="Mesmo telefone ou COD do lead de ${esc(fmtData(dp.data))}${dp.agPor||agendadorNome(dp)?" (agendado por "+esc(agendadorNome(dp))+")":""}">DUPLICADO · verificar quem agendou</span> `:""}${a.filter(x=>x[0]!=="a-dup").map(x=>`<span class="alert ${x[0]}"></span>`).join("")}${rk?`<span class="tag">→ ${esc(nomeMes(rk.para).slice(0,3))}</span>`:""}${so?`<span class="tag bad" title="Exclusão solicitada">excl.?</span>`:""}${l.anteriores&&l.anteriores.length?`<span class="tag info" title="Lead que já veio em outro mês">retorno</span>`:""}</td>
-      <td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td><td>${esc(l.canal)}</td>
-      <td>${l.situacao?`<span class="pill ${sitClass(l.situacao)}">${esc(l.situacao)}</span>`:""}</td><td>${l.status?`<span class="pill ${sitClass(l.status)}">${esc(l.status)}</span>`:""}</td>
+      <td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${pp("cidade",l.cidade,l.key,edL)}</td><td>${pp("interesse",l.interesse,l.key,edL)}</td><td>${pp("canal",l.canal,l.key,edL)}</td>
+      <td>${pp("situacao",l.situacao,l.key,edL)}</td><td>${noGrupoAg(l)||l.status||!edL?pp("status",l.status,l.key,edL&&noGrupoAg(l),"sem status"):""}</td>
       <td class="n">${esc(fmtData(l.agendamento).slice(0,5))}</td><td class="small" style="max-width:260px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td>
-      <td class="small">${S.isAdm&&!rk&&(noGrupoAg(l)||R.agend(l))?`<select class="selresp" data-a="agpq" data-k="${esc(l.key)}" aria-label="Trocar responsável">${opts(EQUIPE,agendadorNome(l),"–")}</select>`:esc(respNome(l))}</td></tr>`}
+      <td class="small">${S.isAdm&&!rk&&(noGrupoAg(l)||R.agend(l))?pp("agPor",agendadorNome(l),l.key,true,"definir"):(noGrupoAg(l)||R.agend(l))&&agendadorNome(l)?pp("agPor",agendadorNome(l),l.key,false):esc(respNome(l))}</td></tr>`}
     h+=`</tbody></table></div>`;
     if(vis.length>f.lim)h+=`<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-a="mais">Mostrar mais (${NUM.format(vis.length-f.lim)} restantes)</button></div>`}
   h+=`<div class="legend" style="margin-top:10px"><span><i style="background:var(--bad)"></i>duplicado: 1º lançamento</span><span><i style="background:var(--warn)"></i>duplicado: lançamento repetido</span><span><i class="alert a-bad"></i>falta data / agendado sem data</span><span><i class="alert a-warn"></i>consulta passou sem baixa</span></div></div>`;
@@ -444,15 +491,15 @@ function renderDrawer(){const root=document.getElementById("drawer-root");const 
    ${riscoDe(l)?`<div class="banner warn">Lançamento riscado: o lead voltou em ${esc(nomeMes(riscoDe(l).para))} e passou a contar lá.</div>`:(l.live?"":`<div class="banner info">Lead de mês arquivado: somente leitura.</div>`)}
    ${solicDe(l.key)?`<div class="banner bad">Exclusão solicitada por ${esc(nome(solicDe(l.key).por))}: aguardando o administrativo.</div>`:""}
    <div><div class="small muted" style="margin-bottom:6px;font-weight:600">Etapa do funil</div>
-    <div class="stepper">${OPC.situacao.map(s=>`<button type="button" data-a="dsit" data-v="${esc(s)}" aria-pressed="${d.situacao===s}"${dis}>${esc(s)}</button>`).join("")}</div></div>
+    <div class="stepper">${OPC.situacao.map(s=>`<button type="button" data-a="dsit" data-v="${esc(s)}" aria-pressed="${d.situacao===s}"${dis}${d.situacao===s&&corDe("situacao",s)?` style="${pstyle("situacao",s)};border-color:transparent"`:""}>${esc(s)}</button>`).join("")}</div></div>
    <div class="form2">
     <label class="f" for="d-ag">Data da consulta<input type="date" id="d-ag" data-a="dset" data-k="agendamento" value="${esc(d.agendamento)}"${dis}></label>
-    <label class="f" for="d-st">Resultado da consulta (status)<select id="d-st" data-a="dset" data-k="status"${dis}>${opts(OPC.status,d.status,"Ainda não")}</select></label>
+    <div class="f"><span>Resultado da consulta (status)</span>${pp("status",d.status,"d:"+l.key,ed,"Ainda não")}</div>
     <label class="f" for="d-cod">COD paciente<input id="d-cod" data-a="dset" data-k="cod" value="${esc(d.cod)}"${dis}></label>
-    <label class="f" for="d-fe">Fechou tratamento?<select id="d-fe" data-a="dset" data-k="fechou"${dis}>${opts(["Sim","Não"],d.fechou,"–")}</select></label>
-    <label class="f" for="d-ci">Cidade<select id="d-ci" data-a="dset" data-k="cidade"${dis}>${opts(OPC.cidade,d.cidade,"–")}</select></label>
-    <label class="f" for="d-in">Interesse<select id="d-in" data-a="dset" data-k="interesse"${dis}>${opts(OPC.interesse,d.interesse,"–")}</select></label>
-    <label class="f" for="d-ca">Canal<select id="d-ca" data-a="dset" data-k="canal"${dis}>${opts(OPC.canal,d.canal,"–")}</select></label>
+    <div class="f"><span>Fechou tratamento?</span>${pp("fechou",d.fechou,"d:"+l.key,ed)}</div>
+    <div class="f"><span>Cidade</span>${pp("cidade",d.cidade,"d:"+l.key,ed)}</div>
+    <div class="f"><span>Interesse</span>${pp("interesse",d.interesse,"d:"+l.key,ed)}</div>
+    <div class="f"><span>Canal</span>${pp("canal",d.canal,"d:"+l.key,ed)}</div>
     ${l.live?`<label class="f" for="d-agp">Agendado por (quem recebe a meta)<select id="d-agp" data-a="dset" data-k="agPor"${ed&&S.isAdm?"":" disabled"}>${opts(EQUIPE,d.agPor,"–")}</select>${S.isAdm?"":`<span class="small muted">Só a gerência troca</span>`}</label>`
       :`<label class="f" for="d-agph">Agendado por (quem recebe a meta)<select id="d-agph" data-a="agpq" data-k="${esc(l.key)}"${S.isAdm?"":" disabled"}>${opts(EQUIPE,agendadorNome(l),"–")}</select></label>`}
     <label class="f" for="d-obs">Observação fixa<input id="d-obs" data-a="dset" data-k="obs" value="${esc(d.obs)}"${dis}></label>
@@ -1134,7 +1181,10 @@ async function salvarAdm(k,mut){const ref=S.db.doc("adm/"+k);
     mut(novo);S.adm[k]=novo;await ref.set(novo)})}
 
 /* ---------------- eventos ---------------- */
-document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t)return;const a=t.dataset.a;
+document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");
+  if(!t||(t.dataset.a!=="ppsel"&&t.dataset.a!=="ppopen"))fecharPP();if(!t)return;const a=t.dataset.a;
+  if(a==="ppopen"){e.stopPropagation();const ab=document.getElementById("ppmenu");if(ab&&ab.dataset.k===t.dataset.k&&ab.dataset.c===t.dataset.c){fecharPP();return}abrirPP(t);return}
+  if(a==="ppsel"){const m=t.closest("#ppmenu");if(m)escolherPP(m,t.dataset.v);return}
   if(a==="sit"){S.f.sit=t.dataset.v;S.f.res="";S.f.pend=false;S.f.risc=false;S.f.lim=150;render()}
   else if(a==="res"){S.f.res=t.dataset.v;S.f.lim=150;render()}
   else if(a==="pend"){S.f.pend=!S.f.pend;S.f.sit="";S.f.res="";S.f.risc=false;render()}
@@ -1177,7 +1227,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
     S.db.doc("segredo/robo").set({token:v,em:new Date().toISOString(),por:S.me||""}).then(()=>{S.roboTemChave=true;i.value="";toast("Chave salva.");render()}).catch(tratarErro)}
   else if(a==="semvalor"){S.adm_soSemValor=!S.adm_soSemValor;render()}
 });
-document.addEventListener("keydown",e=>{if(e.key==="Escape"&&S.sel){S.sel=null;document.getElementById("drawer-root").innerHTML=""}
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&document.getElementById("ppmenu")){fecharPP();return}
+  if(e.key==="Escape"&&S.sel){S.sel=null;document.getElementById("drawer-root").innerHTML=""}
   if(e.key==="Enter"&&e.target.matches("tr[data-a=abrir]")){e.target.click()}});
 document.addEventListener("submit",e=>{if(e.target.id==="fnovo")salvarNovo(e)});
 let buscaT=null;
@@ -1285,4 +1336,3 @@ window.__iniciar=()=>{rota();boot();};
 </script>
 </body>
 </html>
- 
