@@ -142,6 +142,7 @@ tr.risc td{text-decoration:line-through;color:var(--muted)} tr.risc td:first-chi
 .subtabs{display:flex;gap:6px;flex-wrap:wrap;margin-top:14px;border-top:1px solid var(--line);padding-top:12px}.subtab{border:1px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:7px 14px;font:inherit;font-size:13px;font-weight:600;cursor:pointer}.subtab[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:#fff}.subtab:hover{border-color:var(--accent)}
 tr.dup td{background:var(--bad-soft)!important}tr.dup td:first-child{box-shadow:inset 4px 0 0 var(--bad)}.tag.dupt{background:var(--bad);color:#fff;font-weight:700;white-space:nowrap}
 tr.dup2 td{background:var(--warn-soft)!important}tr.dup2 td:first-child{box-shadow:inset 4px 0 0 var(--warn)}.tag.dupt2{background:var(--warn);color:#fff;font-weight:700;white-space:nowrap}
+.selresp{font-size:12px;padding:3px 6px;min-width:96px}
 </style>
 </head>
 <body>
@@ -177,7 +178,9 @@ const MIDIA_FONTE=/an[uú]ncio|site|empresa|google|youtube|tiktok|pinterest|inst
 const isMidia=l=>MIDIA.has(l.canal)||(l.canal==="Outros"&&MIDIA_FONTE.test(l.fonte||""));
 const META={presenca:5,limpeza:5,proc:1,juli:2,limpezaMin:219};
 const tel8=s=>{const d=String(s||"").replace(/\D/g,"");return d.length>=8?d.slice(-8):""};
-const EQUIPE=["Vinícius","Samara","Bernardo"];const MKT="Juliana";
+const EQUIPE=["Thainá","Vinícius","Samara","Bernardo"];
+// quem recebe meta por agendamento (a Thainá agenda para o Vinícius e a Samara: a meta é deles)
+const SEM_META=["Thainá"];const MKT="Juliana";
 const semAc=x=>String(x||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().trim();
 const MES_NOME=["Janeiro","Fevereiro","Março","Abril","Maio","Junho","Julho","Agosto","Setembro","Outubro","Novembro","Dezembro"];
 const ULTIMO_ARQUIVADO="2026-10";      // meses até aqui vêm do histórico (somente leitura)
@@ -244,7 +247,7 @@ const riscoDe=l=>l.live?l.riscado:((S.risc[l.mes]||{})[l.key]||null);
 const ativos=mes=>leadsDo(mes).filter(l=>!riscoDe(l));
 function acharPorTel(tel,excetoMes){const k=tel8(tel);if(!k)return [];const out=[];
   for(const m of MESES){if(m===excetoMes||m>excetoMes)continue;for(const l of leadsDo(m))if(!riscoDe(l)&&tel8(l.contato)===k)out.push(l)}return out}
-const notaAg=n=>n&&n.para==="Agendado"&&n.de!=="Agendado"&&n.u!=="robo";
+const notaAg=n=>n&&n.para==="Agendado"&&n.de!=="Agendado"&&n.u!=="robo"&&n.u!=="import";
 const quemAgendou=l=>{const n=(l.notas||[]).find(n=>notaAg(n)&&n.u);return n?n.u:(l.resp||null)};
 const mesConsulta=l=>(l.agendamento||l.data||"").slice(0,7)||l.mes;
 const AG_GRUPO=["Agendado","Presença","Faltoso","Cancelado"];
@@ -402,7 +405,7 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
       <td class="n">${esc(fmtData(l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td><td>${esc(l.canal)}</td>
       <td>${l.situacao?`<span class="pill ${sitClass(l.situacao)}">${esc(l.situacao)}</span>`:""}</td><td>${l.status?`<span class="pill ${sitClass(l.status)}">${esc(l.status)}</span>`:""}</td>
       <td class="n">${esc(fmtData(l.agendamento).slice(0,5))}</td><td class="small" style="max-width:260px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td>
-      <td class="small">${esc(respNome(l))}</td></tr>`}
+      <td class="small">${S.isAdm&&!rk&&(noGrupoAg(l)||R.agend(l))?`<select class="selresp" data-a="agpq" data-k="${esc(l.key)}" aria-label="Trocar responsável">${opts(EQUIPE,agendadorNome(l),"–")}</select>`:esc(respNome(l))}</td></tr>`}
     h+=`</tbody></table></div>`;
     if(vis.length>f.lim)h+=`<div class="row" style="justify-content:center;margin-top:10px"><button class="btn" data-a="mais">Mostrar mais (${NUM.format(vis.length-f.lim)} restantes)</button></div>`}
   h+=`<div class="legend" style="margin-top:10px"><span><i style="background:var(--bad)"></i>duplicado: 1º lançamento</span><span><i style="background:var(--warn)"></i>duplicado: lançamento repetido</span><span><i class="alert a-bad"></i>falta data / agendado sem data</span><span><i class="alert a-warn"></i>consulta passou sem baixa</span></div></div>`;
@@ -450,7 +453,8 @@ function renderDrawer(){const root=document.getElementById("drawer-root");const 
     <label class="f" for="d-ci">Cidade<select id="d-ci" data-a="dset" data-k="cidade"${dis}>${opts(OPC.cidade,d.cidade,"–")}</select></label>
     <label class="f" for="d-in">Interesse<select id="d-in" data-a="dset" data-k="interesse"${dis}>${opts(OPC.interesse,d.interesse,"–")}</select></label>
     <label class="f" for="d-ca">Canal<select id="d-ca" data-a="dset" data-k="canal"${dis}>${opts(OPC.canal,d.canal,"–")}</select></label>
-    <label class="f" for="d-agp">Agendado por<select id="d-agp" data-a="dset" data-k="agPor"${dis}>${opts(EQUIPE,d.agPor,"–")}</select></label>
+    ${l.live?`<label class="f" for="d-agp">Agendado por (quem recebe a meta)<select id="d-agp" data-a="dset" data-k="agPor"${ed&&S.isAdm?"":" disabled"}>${opts(EQUIPE,d.agPor,"–")}</select>${S.isAdm?"":`<span class="small muted">Só a gerência troca</span>`}</label>`
+      :`<label class="f" for="d-agph">Agendado por (quem recebe a meta)<select id="d-agph" data-a="agpq" data-k="${esc(l.key)}"${S.isAdm?"":" disabled"}>${opts(EQUIPE,agendadorNome(l),"–")}</select></label>`}
     <label class="f" for="d-obs">Observação fixa<input id="d-obs" data-a="dset" data-k="obs" value="${esc(d.obs)}"${dis}></label>
    </div>
    ${ed?`<label class="f" for="d-nota">Nova anotação (fica no histórico com seu nome)<textarea id="d-nota" data-a="dset" data-k="nota" placeholder="Ex.: liguei, pediu retorno na segunda">${esc(d.nota)}</textarea></label>`:""}
@@ -599,6 +603,7 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
     h+=`<div class="card"><h2>Investimento de ${nomeMes(k)} <small>por canal, se souber; senão use "Sem divisão"</small></h2><div class="row">
      ${[["principal","Principal"],["paralela","Paralela"],["outros","Outros"],["semdiv","Sem divisão"]].map(([c,n])=>`<label class="f" for="inv-${c}">${n}<input class="money" id="inv-${c}" inputmode="decimal" data-a="inv" data-k="${c}" value="${a.inv[c]!=null?String(a.inv[c]).replace(".",","):""}" placeholder="0,00"></label>`).join("")}
      <div><div class="small muted">Total</div><b class="num" style="font-size:18px">${BRL.format(a.investido)}</b></div></div></div>`;}
+    h+=vImportMkt();
     h+=vRespImport();
     if(S.isOwner)h+=vAcesso();
     h+=vZerar(S.mes);
@@ -735,6 +740,13 @@ async function limparDupImport(mes){if(!S.isAdm)return;const acoes=planoLimpeza(
   catch(e){tratarErro(e);if(b)b.disabled=false}}
 
 /* ---- zerar os leads de um mês (só a dona) ---- */
+
+/* ---- trocar o responsável (quem recebe a meta): só gerência ---- */
+async function trocarResp(key,novo){if(!S.isAdm)return;const l=acharLead(key);if(!l)return;const antes=agendadorNome(l)||"–";if(antes===novo)return;const t=new Date().toISOString();
+  try{if(l.live)await serial(l.key,()=>S.db.doc("m/"+l.mes+"/leads/"+l.id).update({agPor:novo,notas:[...l.notas,{u:S.me||"",t,de:l.situacao||"",para:l.situacao||"",st:"",txt:`Responsável trocado: ${antes} → ${novo||"–"}`}].slice(-60)}));
+    else{const mapa={...((S.resp&&S.resp[l.mes])||{}),[l.key]:novo};await S.db.doc("resp/"+l.mes).set({mapa,em:t,por:S.me||""});S.resp[l.mes]=mapa}
+    toast(`Responsável: ${antes} → ${novo||"–"}`);render();if(S.sel)renderDrawer()}
+  catch(e){tratarErro(e)}}
 function vZerar(mes){if(!S.isOwner||!isLive(mes))return "";const n=leadsDo(mes).filter(l=>l.live).length;const pal="ZERAR";
   const riscPrev=MESES.filter(m=>m<mes).reduce((a,m)=>a+Object.values(S.risc[m]||{}).filter(r=>r&&r.para===mes).length,0);
   return `<div class="card" style="border-left:4px solid var(--bad)"><h2>Zerar os leads de ${esc(nomeMes(mes))} <small>só você vê este cartão</small></h2>
@@ -754,6 +766,80 @@ async function zerarMes(mes){if(!S.isOwner||!isLive(mes))return;if((S.zerarTxt||
       if(isLive(m))for(const l of leadsDo(m).filter(l=>l.live&&l.riscado&&l.riscado.para===mes))await serial(l.key,()=>S.db.doc("m/"+m+"/leads/"+l.id).update({riscado:null}))}
     S.zerarTxt="";toast(`${nomeMes(mes)} zerado: ${NUM.format(i)} leads apagados. O backup foi baixado antes.`);render()}
   catch(e){tratarErro(e);if(b)b.disabled=false;msg("Parou no meio. Clique de novo para continuar.")}}
+
+/* ---- importar os leads do mês da planilha "Marketing 2026" (aba do mês, com a coluna Responsável) ---- */
+const RESP_MAP=v=>{const n=semAc(String(v||"")).toUpperCase().trim();if(!n||n.startsWith("NAO ENCONTR"))return "";
+  const p=n.split(/[\/,;]| E /)[0].trim();if(/^VINI/.test(p))return "Vinícius";if(/^SAMI|^SAMARA/.test(p))return "Samara";if(/^BER/.test(p))return "Bernardo";if(/^THAIN/.test(p))return "Thainá";if(/^JULI/.test(p))return "Juliana";
+  return String(v).split(/[\/,;]/)[0].trim()};
+const CANAL_MKT=v=>{const n=semAc(v).toLowerCase().trim();if(!n)return "Outros";if(n.startsWith("principal"))return "Principal";if(n.startsWith("paralela"))return "Paralela";
+  if(n.startsWith("instagram"))return "Instagram";if(n.startsWith("facebook"))return "Facebook";if(n.startsWith("site"))return "Site";if(n.startsWith("google"))return "Google";if(n.startsWith("anuncio juli"))return OPC.canal.find(c=>semAc(c).toLowerCase().startsWith("anuncio juli"))||"Outros";
+  if(n.startsWith("organ"))return "Orgânico";for(const c of OPC.canal)if(semAc(c).toLowerCase()===n)return c;return "Outros"};
+const CIDADE_MKT=v=>{const n=semAc(v).toLowerCase().trim();if(!n)return "";if(n.startsWith("sem top")||n.startsWith("fora"))return "Fora da área";return CIDADE_PLAN(v)};
+const INTER_MKT=v=>{const n=semAc(v).toLowerCase().trim();if(!n)return "";return INTER_PLAN(v)};
+function dataMkt(x){const p2=n=>String(n).padStart(2,"0");if(typeof x==="number"&&x>20000&&x<80000){const d=XLSX.SSF.parse_date_code(x);return d?`${d.y}-${p2(d.m)}-${p2(d.d)}`:""}
+  const m=String(x||"").match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/);return m?`${m[3]}-${p2(m[2])}-${p2(m[1])}`:""}
+function abaDoMes(wb,mes){const alvo=semAc(nomeMes(mes)).toLowerCase();const so=alvo.split(" ")[0];
+  return wb.SheetNames.find(t=>semAc(t).toLowerCase().trim()===alvo)||wb.SheetNames.find(t=>{const n=semAc(t).toLowerCase().trim();return n.startsWith(so)&&n.includes(mes.slice(0,4))})||null}
+function lerLeadsMkt(wb,mes){const aba=abaDoMes(wb,mes);if(!aba)return {aba:null,linhas:[]};
+  const rows=XLSX.utils.sheet_to_json(wb.Sheets[aba],{header:1,raw:true,defval:""});
+  const hi=rows.findIndex(r=>r.some(c=>semAc(String(c)).toLowerCase().trim()==="contato"));if(hi<0)return {aba,linhas:[]};
+  const H=rows[hi].map(c=>semAc(String(c)).toLowerCase().trim());const ix=(...ns)=>{for(const n of ns){const i=H.indexOf(n);if(i>=0)return i}return -1};
+  const iF=ix("fonte","via","canal"),iD=ix("data"),iCt=ix("contato"),iCi=ix("cidade"),iI=ix("interesse"),iS=ix("situacao"),iSt=ix("status"),iCo=ix("cod/obs","cod","cod / obs"),iA=ix("agendamento"),iFe=ix("fechou?","fechou"),iR=ix("responsavel","quem agendou");
+  const v=(r,i)=>i>=0?String(r[i]??"").replace(/\s+/g," ").trim():"";const out=[];let trocadas=0;
+  for(const r of rows.slice(hi+1)){const contato=v(r,iCt);const data=dataMkt(r[iD]);if(!contato&&!data)continue;if(!data)continue;
+    let ag=iA>=0?dataMkt(r[iA]):"";
+    if(ag&&ag<data){const [y,m,d]=ag.split("-");if(+d<=12){const sw=`${y}-${d}-${m}`;if(sw>=data){ag=sw;trocadas++}}}
+    const sn=semAc(v(r,iS)).toLowerCase();const sit=sn.startsWith("agend")||sn.startsWith("reagend")?"Agendado":sn.startsWith("perdeu")?"Perdeu interesse":sn.startsWith("em contato")?"Em contato":(sn?OPC.situacao.find(x=>semAc(x).toLowerCase()===sn)||"Em contato":"Em contato");
+    const st=["Presença","Faltoso","Cancelado"].find(x=>semAc(x).toLowerCase()===semAc(v(r,iSt)).toLowerCase())||"";
+    const co=v(r,iCo);const mc=co.match(/^\s*(\d{2,7})\b\s*[|\/·-]?\s*(.*)$/);const cod=mc?mc[1]:"";const obs=mc?mc[2]:co;
+    const fe=semAc(v(r,iFe)).toLowerCase();
+    out.push({data,contato,canal:CANAL_MKT(v(r,iF)),fonte:v(r,iF),cidade:CIDADE_MKT(v(r,iCi)),interesse:INTER_MKT(v(r,iI)),situacao:sit,status:sit==="Agendado"?st:"",cod,obs,agendamento:ag,
+      fechou:fe.startsWith("sim")?"Sim":fe.startsWith("nao")?"Não":"",agPor:RESP_MAP(v(r,iR)),respBruto:v(r,iR)})}
+  return {aba,linhas:out,trocadas}}
+function prepararMkt(lido,mes){const ja=new Map(leadsDo(mes).filter(l=>l.live&&!riscoDe(l)).map(l=>[tel8(l.contato)+"|"+l.data+"|"+(l.cod||""),l]));
+  const novos=[],existentes=[],atual=[];const cAt={};
+  for(const x of lido.linhas){const k=tel8(x.contato)+"|"+x.data+"|"+(x.cod||"");const L=ja.get(k);if(!L){novos.push(x);continue}existentes.push(x);
+    const up={};if(x.status&&x.status!==L.status){up.status=x.status;cAt["status "+x.status]=(cAt["status "+x.status]||0)+1}
+    if(x.situacao==="Agendado"&&L.situacao!=="Agendado"&&!["Presença","Faltoso","Cancelado"].includes(L.situacao)){up.situacao="Agendado";cAt["passa a Agendado"]=(cAt["passa a Agendado"]||0)+1}
+    if(x.agendamento&&!L.agendamento){up.agendamento=x.agendamento;cAt["data da consulta"]=(cAt["data da consulta"]||0)+1}
+    if(x.agPor&&!L.agPor){up.agPor=x.agPor;cAt["responsável"]=(cAt["responsável"]||0)+1}
+    if(Object.keys(up).length)atual.push({l:L,up})}
+  const cont=(arr,f)=>arr.reduce((o,x)=>{const k=f(x)||"(vazio)";o[k]=(o[k]||0)+1;return o},{});
+  const ant=novos.map(x=>acharPorTel(x.contato,mes)).filter(a=>a.length).length;
+  return {mes,aba:lido.aba,novos,existentes:existentes.length,atual,cAt,trocadas:lido.trocadas||0,porResp:cont(novos.filter(x=>x.situacao==="Agendado"),x=>x.agPor),porSit:cont(novos,x=>x.situacao),porStatus:cont(novos.filter(x=>x.status),x=>x.status),ant}}
+async function lerArquivoMkt(file){if(!S.isAdm)return;const mes=S.mes;if(!isLive(mes)){toast("Escolha um mês aberto (a partir de novembro/2026) no campo Mês.");return}
+  try{await carregar(LIB.xlsx);const wb=XLSX.read(await file.arrayBuffer(),{type:"array"});const lido=lerLeadsMkt(wb,mes);
+    if(!lido.aba){toast(`Não achei a aba "${nomeMes(mes)}" nessa planilha.`);return}if(!lido.linhas.length){toast(`A aba "${lido.aba}" não tem leads com data e contato.`);return}
+    S.mktPrev={arquivo:file.name,...prepararMkt(lido,mes)};render()}
+  catch(e){toast("Não consegui ler a planilha. Confira se é um arquivo .xlsx.")}}
+async function incluirMkt(){const p=S.mktPrev;if(!p||!S.isAdm||!(p.novos.length||p.atual.length))return;const b=document.querySelector('[data-a="mktok"]');if(b)b.disabled=true;
+  const msg=t=>{const e=document.getElementById("mkt-prog");if(e)e.textContent=t};const t=new Date().toISOString();let n=0,risc=0;const riscH={};
+  let nAt=0;
+  try{assinarMes(p.mes);
+    if(S.mktAtualizar!==false)for(const {l,up} of p.atual){
+      await serial(l.key,()=>S.db.doc("m/"+l.mes+"/leads/"+l.id).update({...up,notas:[...l.notas,{u:"import",t,de:l.situacao||"",para:up.situacao||l.situacao||"",st:up.status||"",txt:"Atualizado pela planilha de Marketing"}].slice(-60)}));nAt++;if(nAt%10===0)msg(`Atualizando ${nAt} de ${p.atual.length}…`)}
+    for(const x of p.novos){const ant=S.mktRiscar!==false?acharPorTel(x.contato,p.mes):[];const mesesAnt=[...new Set(ant.map(l=>l.mes))].sort();
+      const obsAnt=mesesAnt.length?"Lead de "+mesesAnt.map(m=>nomeMes(m).toLowerCase()).join(", "):"";
+      const {respBruto,...d}=x;
+      const ref=await S.db.collection("m/"+p.mes+"/leads").add({...d,obs:[obsAnt,d.obs].filter(Boolean).join(" · "),resp:"",criado:t,anteriores:mesesAnt,importadoMkt:t,
+        notas:[{u:"import",t,de:"",para:d.situacao,st:d.status,txt:"Importado da planilha de Marketing"+(respBruto?" · responsável: "+respBruto:"")}]});
+      for(const l of ant){const info={para:p.mes,id:ref.id,em:t,por:S.me||""};risc++;
+        if(l.live)await serial(l.key,()=>S.db.doc("m/"+l.mes+"/leads/"+l.id).update({riscado:info}));else (riscH[l.mes]=riscH[l.mes]||{})[l.key]=info}
+      n++;if(n%10===0)msg(`Incluindo ${n} de ${p.novos.length}…`)}
+    for(const [m,it] of Object.entries(riscH))await serial("risc/"+m,()=>S.db.doc("risc/"+m).set({itens:{...(S.risc[m]||{}),...it}}));
+    toast(`${NUM.format(n)} leads incluídos${nAt?` e ${NUM.format(nAt)} atualizados`:""} em ${nomeMes(p.mes)}${risc?` · ${NUM.format(risc)} lançamentos de meses anteriores riscados`:""}.`);S.mktPrev=null;render()}
+  catch(e){tratarErro(e);if(b)b.disabled=false;msg("Parou no meio. Envie a planilha de novo: os que já entraram não são repetidos.")}}
+function vImportMkt(){if(!S.isAdm)return "";const mes=S.mes;const p=S.mktPrev&&S.mktPrev.mes===mes?S.mktPrev:null;
+  let h=`<div class="card"><h2>Importar leads do mês <small>planilha "Marketing 2026" com a coluna Responsável</small></h2>
+   <p class="small muted" style="margin-top:0">Envie a planilha de Marketing. O sistema lê a aba <b>${esc(nomeMes(mes))}</b> (o mês escolhido no topo) e inclui os leads com fonte, cidade, interesse, situação, status, COD, data da consulta e responsável (VINI → Vinícius, SAMI → Samara, BER → Bernardo, Thainá). Leads que já estão no mês não entram de novo.</p>
+   ${isLive(mes)?`<label class="f" for="mkt-file">Planilha (.xlsx)<input id="mkt-file" type="file" accept=".xlsx,.xls" data-a="mktfile"></label>`:`<div class="banner info">Escolha um mês aberto (a partir de novembro/2026) no campo Mês para importar.</div>`}`;
+  if(p){const lst=o=>Object.entries(o).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`${esc(k)}: <b>${NUM.format(v)}</b>`).join(" · ");
+    h+=`<div class="banner info" style="margin-top:12px">Arquivo <b>${esc(p.arquivo)}</b> · aba <b>${esc(p.aba)}</b> · <b>${NUM.format(p.novos.length)}</b> leads para incluir${p.existentes?` · ${NUM.format(p.existentes)} já estavam no mês e ficam de fora`:""}.</div>
+     <div class="small" style="margin-top:10px;line-height:1.9">Situação: ${lst(p.porSit)}<br>Resultado: ${lst(p.porStatus)||"–"}<br>Agendados por responsável: ${lst(p.porResp)}${p.trocadas?`<br><span class="muted">${NUM.format(p.trocadas)} datas de consulta estavam com dia e mês trocados e foram corrigidas.</span>`:""}</div>
+     ${p.ant?`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-a="mktrisc"${S.mktRiscar!==false?" checked":""}> ${NUM.format(p.ant)} desses telefones já vieram em meses anteriores: riscar o lançamento antigo e marcar "Lead de &lt;mês&gt;" (regra do lead repetido)</label>`:""}
+     ${p.atual.length?`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-a="mktatual"${S.mktAtualizar!==false?" checked":""}> Atualizar ${NUM.format(p.atual.length)} leads que já estão no mês com a planilha (${esc(Object.entries(p.cAt).map(([k,v])=>k+": "+v).join(" · "))}). Responsável já definido no Funil não muda.</label>`:""}
+     <div class="row" style="gap:8px;margin-top:12px;align-items:center"><button class="btn pri" data-a="mktok"${p.novos.length||p.atual.length?"":" disabled"}>${p.novos.length?`Incluir ${NUM.format(p.novos.length)} leads`:""}${p.novos.length&&p.atual.length?" e ":""}${p.atual.length?`${p.novos.length?"atualizar":"Atualizar"} ${NUM.format(p.atual.length)}`:""}${!p.novos.length&&!p.atual.length?"Nada para incluir":""} em ${esc(nomeMes(mes))}</button><button class="btn" data-a="mktcancel">Cancelar</button><span class="small muted" id="mkt-prog"></span></div>`}
+  return h+`</div>`}
 function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.respMes||S.mes;
   const ops=MESES.filter(k=>k<=mesAtual).map(k=>`<option value="${k}"${k===mesSel?" selected":""}>${esc(nomeMes(k))}</option>`).join("");
   let h=`<div class="card"><h2>Responsáveis pelos agendamentos <small>planilha de metas do comercial</small></h2>
@@ -961,7 +1047,8 @@ async function decidirExc(sid,aprova){const x=S.solic.find(y=>y.sid===sid);if(!x
 function presencasDoMes(K){const out=[];for(const m of MESES)for(const l of ativos(m))if(R.pres(l)&&mesConsulta(l)===K)out.push(l);return out}
 function calcMeta(l){const a=S.adm[l.mes]||{};const valor=+((a.valores||{})[l.key])||0;const mt=(a.metas||{})[l.key]||{};
   const eleg=valor>=META.limpezaMin;const limp=mt.limpeza==="Sim";const proc=Math.max(0,Math.floor(+mt.proc||0));
-  const total=META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag:agendadorNome(l),midia:isMidia(l)}}
+  const ag=agendadorNome(l);const semMeta=SEM_META.includes(ag);
+  const total=semMeta?0:META.presenca+(limp?META.limpeza:0)+proc*META.proc;return {valor,eleg,limp,limpRes:mt.limpeza||"",proc,total,verificar:eleg&&!mt.limpeza,ag,semMeta,midia:isMidia(l)}}
 const reais=v=>BRL.format(v);
 
 /* ---- filtro da conferência de metas: colaborador + período ---- */
@@ -980,7 +1067,8 @@ function vFiltroMetas(K,ini,fim,rot,col,cs){const f=S.mf||{},p=f.p||"mes";
    ${p==="custom"?`<label class="f" for="mf-de">De<input type="date" id="mf-de" data-a="mfde" value="${esc(ini)}"></label><label class="f" for="mf-ate">Até<input type="date" id="mf-ate" data-a="mfate" value="${esc(fim)}"></label>`:""}
    ${col||p!=="mes"?`<button class="btn" data-a="mflimpar">Limpar filtro</button>`:""}</div>`;
   if(col){const t=cs.reduce((a,[,c])=>({pres:a.pres+1,limp:a.limp+(c.limp?1:0),proc:a.proc+c.proc,total:a.total+c.total,verif:a.verif+(c.verificar?1:0)}),{pres:0,limp:0,proc:0,total:0,verif:0});
-    h+=col==="Juliana"
+    h+=SEM_META.includes(col)?`<div class="banner warn" style="margin-top:14px"><b>${esc(col)} não recebe meta por agendamento</b>: ${NUM.format(t.pres)} presença${t.pres===1?"":"s"} no período. Na tabela abaixo, troque o responsável de cada uma para quem recebe a meta (Vinícius ou Samara).</div>`
+      :col==="Juliana"
       ?`<div class="kpis" style="margin-top:14px">${kpi("Presenças de mídia",NUM.format(t.pres),esc(rot),"var(--accent)")}${kpi("Meta da Juliana",reais(t.pres*META.juli),"R$ "+META.juli+" × presenças","var(--ok)")}</div>`
       :`<div class="kpis" style="margin-top:14px">${kpi("Presenças",NUM.format(t.pres),reais(t.pres*META.presenca),"var(--info)")}${kpi("Limpezas",NUM.format(t.limp),reais(t.limp*META.limpeza)+(t.verif?" · "+t.verif+" a verificar":""),"var(--accent)")}${kpi("Proced. pagos",NUM.format(t.proc),reais(t.proc*META.proc),"var(--muted)")}${kpi("Meta de "+col,reais(t.total),esc(rot),"var(--ok)")}</div>`}
   return h+`<div class="small muted" style="margin-top:10px">As presenças contam pela data da consulta. O valor de cada paciente e a limpeza continuam sendo lançados na tabela de conferência abaixo.</div></div>`}
@@ -989,10 +1077,12 @@ function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col
   // mesmo paciente (telefone ou COD) com mais de uma presença no período: conta uma vez só
   marcarRepetidos(csAll);
   const cs=col==="Juliana"?csAll.filter(([,c])=>c.midia):col==="Sem responsável"?csAll.filter(([,c])=>!c.ag):col?csAll.filter(([,c])=>c.ag===col):csAll;const ps=cs.map(([l])=>l);const csAll0=csAll;const nDup=cs.filter(([,c])=>c.dup).length;const contam=cs.filter(([,c])=>!c.dup);
-  const por={};for(const [l,c] of contam){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0,verif:0});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total;if(c.verificar)por[k].verif++}
+  const por={};for(const [l,c] of contam){const k=c.ag||"__sem";(por[k]=por[k]||{pres:0,limp:0,proc:0,total:0,verif:0,sm:c.semMeta});por[k].pres++;if(c.limp)por[k].limp++;por[k].proc+=c.proc;por[k].total+=c.total;if(c.verificar)por[k].verif++}
+  const tot0={pres:0,limp:0,proc:0};
   const verif=contam.filter(([,c])=>c.verificar).length;
-  const tot=Object.values(por).reduce((a,b)=>({pres:a.pres+b.pres,limp:a.limp+b.limp,proc:a.proc+b.proc,total:a.total+b.total}),{pres:0,limp:0,proc:0,total:0});
-  const linhas=Object.entries(por).sort((a,b)=>b[1].total-a[1].total).map(([id,v])=>[id==="__sem"?'<span class="muted">Sem responsável</span>':esc(id),NUM.format(v.pres),reais(v.pres*META.presenca),NUM.format(v.limp),reais(v.limp*META.limpeza),NUM.format(v.proc),reais(v.proc*META.proc),`<b>${reais(v.total)}</b>`,v.verif?`<span class="tag">${v.verif} a verificar</span>`:""]);
+  const tot=Object.values(por).filter(v=>!v.sm).reduce((a,b)=>({pres:a.pres+b.pres,limp:a.limp+b.limp,proc:a.proc+b.proc,total:a.total+b.total}),{pres:0,limp:0,proc:0,total:0});
+  const z=(v,x)=>v.sm?'<span class="muted">–</span>':x;
+  const linhas=Object.entries(por).sort((a,b)=>(a[1].sm-b[1].sm)||b[1].total-a[1].total).map(([id,v])=>[id==="__sem"?'<span class="muted">Sem responsável</span>':esc(id)+(v.sm?' <span class="tag warn" title="A Thainá agenda para o Vinícius e a Samara: troque o responsável dessas presenças para quem recebe a meta">sem meta · trocar responsável</span>':""),NUM.format(v.pres),z(v,reais(v.pres*META.presenca)),NUM.format(v.limp),z(v,reais(v.limp*META.limpeza)),NUM.format(v.proc),z(v,reais(v.proc*META.proc)),`<b>${z(v,reais(v.total))}</b>`,v.verif&&!v.sm?`<span class="tag">${v.verif} a verificar</span>`:""]);
   const juli=contam.filter(([,c])=>c.midia);const porCanal={};for(const [l] of juli){const k=l.canal==="Outros"&&l.fonte?l.fonte:l.canal;porCanal[k]=(porCanal[k]||0)+1}
   let h=vFiltroMetas(K,ini,fim,rot,col,contam);
   if(nDup)h+=`<div class="banner warn">${NUM.format(nDup)} presença${nDup>1?"s":""} de paciente repetido (mesmo telefone ou COD) no período ${nDup>1?"não contam":"não conta"} na meta. Na tabela de conferência ${nDup>1?"elas aparecem":"ela aparece"} com a etiqueta <b>repetido</b>.</div>`;
@@ -1008,7 +1098,7 @@ function vMetas(K){const [ini,fim,rot]=periodoMetas(K);const col=(S.mf&&S.mf.col
    <div class="row" style="margin-bottom:10px"><button class="chip" data-a="soverif" aria-pressed="${!!S.soVerif}">Só limpezas a verificar</button></div>
    <div class="tablewrap"><table><thead><tr><th>Consulta</th><th>Contato</th><th>COD / Obs.</th><th>Cidade</th><th>Interesse</th><th>Origem</th><th>Agendou</th><th class="n">Valor (R$)</th><th>Limpeza?</th><th class="n">Proced. pagos</th><th class="n">Meta</th></tr></thead><tbody>
    ${cs.filter(([,c])=>!S.soVerif||c.verificar).map(([l,c])=>`<tr><td class="n">${esc(fmtData(l.agendamento||l.data).slice(0,5))}</td><td class="num">${esc(l.contato)}</td><td class="small" style="max-width:200px">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</td><td>${esc(l.cidade)}</td><td>${esc(l.interesse)}</td>
-     <td class="small">${esc(l.canal==="Outros"&&l.fonte?l.fonte:l.canal)}${c.midia?' <span class="tag ok">mídia</span>':""}</td><td class="small">${c.ag?esc(c.ag):'<span class="muted">sem responsável</span>'}${c.dup?' <span class="tag warn" title="Mesmo telefone ou COD de outra presença do período: não conta na meta">repetido</span>':""}</td>
+     <td class="small">${esc(l.canal==="Outros"&&l.fonte?l.fonte:l.canal)}${c.midia?' <span class="tag ok">mídia</span>':""}</td><td class="small"><select class="selresp" data-a="agpq" data-k="${esc(l.key)}" aria-label="Trocar responsável">${opts(EQUIPE,c.ag,"–")}</select>${c.semMeta?' <span class="tag warn">sem meta</span>':""}${c.dup?' <span class="tag warn" title="Mesmo telefone ou COD de outra presença do período: não conta na meta">repetido</span>':""}</td>
      <td class="n"><input class="money" id="mv-${esc(l.key)}" inputmode="decimal" data-a="mvalor" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.valor?String(c.valor).replace(".",","):""}" placeholder="0,00" aria-label="Valor de ${esc(l.contato)}"></td>
      <td><select id="ml-${esc(l.key)}" data-a="mlimp" data-k="${esc(l.key)}" data-m="${l.mes}" aria-label="Foi limpeza?">${opts(["Sim","Não"],c.limpRes,c.eleg?"Verificar":"–")}</select>${c.verificar?' <span class="tag">verificar</span>':""}</td>
      <td class="n"><input class="money" style="width:70px" id="mp-${esc(l.key)}" inputmode="numeric" data-a="mproc" data-k="${esc(l.key)}" data-m="${l.mes}" value="${c.proc||""}" placeholder="0" aria-label="Procedimentos pagos de ${esc(l.contato)}"></td>
@@ -1076,6 +1166,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");if(!t
   else if(a==="mflimpar"){S.mf={};render()}
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
+  else if(a==="mktok"){incluirMkt()}
+  else if(a==="mktcancel"){S.mktPrev=null;render()}
   else if(a==="zerar"){zerarMes(t.dataset.m)}
   else if(a==="limpadup"){limparDupImport(t.dataset.m)}
   else if(a==="respcancel"){S.respPrev=null;render()}
@@ -1099,6 +1191,10 @@ document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&
   if(a==="mfp"){S.mf={...(S.mf||{}),p:t.value};render();return}
   if(a==="mfde"||a==="mfate"){S.mf={...(S.mf||{}),p:"custom",[a==="mfde"?"de":"ate"]:t.value};render();return}
   if(a==="zerartxt"){S.zerarTxt=t.value;const b=document.querySelector('[data-a="zerar"]');if(b)b.disabled=t.value.trim().toUpperCase()!=="ZERAR";return}
+  if(a==="agpq"){trocarResp(t.dataset.k,t.value);return}
+  if(a==="mktfile"){const f=t.files&&t.files[0];t.value="";if(f)lerArquivoMkt(f);return}
+  if(a==="mktrisc"){S.mktRiscar=!!t.checked;return}
+  if(a==="mktatual"){S.mktAtualizar=!!t.checked;return}
   if(a==="respcriar"){S.respCriar=!!t.checked;return}
   if(a==="respmes"){S.respMes=t.value;if(S.respPrev){S.respPrev={...S.respPrev,...cruzarResp(S.respPrev.linhas,t.value)}}render();return}
   if(a==="respfile"){const f=t.files&&t.files[0];t.value="";if(f){S.respMes=null;const sel=document.getElementById("resp-mes");const auto=mesDoArquivo(f.name);S.respMes=auto||(sel&&sel.value)||S.mes;importarResp(f)}return}
