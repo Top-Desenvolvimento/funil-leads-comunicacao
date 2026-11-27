@@ -672,6 +672,7 @@ function vAdm(){if(!S.isAdm)return `<div class="card lock"><div><h2>Área admini
      ${[["principal","Principal"],["paralela","Paralela"],["outros","Outros"],["semdiv","Sem divisão"]].map(([c,n])=>`<label class="f" for="inv-${c}">${n}<input class="money" id="inv-${c}" inputmode="decimal" data-a="inv" data-k="${c}" value="${a.inv[c]!=null?String(a.inv[c]).replace(".",","):""}" placeholder="0,00"></label>`).join("")}
      <div><div class="small muted">Total</div><b class="num" style="font-size:18px">${BRL.format(a.investido)}</b></div></div></div>`;}
     h+=vImportMkt();
+    h+=vImportValores();
     h+=vRespImport();
     if(S.isOwner)h+=vAcesso();
     h+=vZerar(S.mes);
@@ -919,6 +920,52 @@ function vImportMkt(){if(!S.isAdm)return "";const mes=S.mes;const p=S.mktPrev&&S
      ${p.ant?`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-a="mktrisc"${S.mktRiscar!==false?" checked":""}> ${NUM.format(p.ant)} desses telefones já vieram em meses anteriores: riscar o lançamento antigo e marcar "Lead de &lt;mês&gt;" (regra do lead repetido)</label>`:""}
      ${p.atual.length?`<label class="small" style="display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" data-a="mktatual"${S.mktAtualizar!==false?" checked":""}> Atualizar ${NUM.format(p.atual.length)} leads que já estão no mês com a planilha (${esc(Object.entries(p.cAt).map(([k,v])=>k+": "+v).join(" · "))}). Responsável já definido no Funil não muda.</label>`:""}
      <div class="row" style="gap:8px;margin-top:12px;align-items:center"><button class="btn pri" data-a="mktok"${p.novos.length||p.atual.length?"":" disabled"}>${p.novos.length?`Incluir ${NUM.format(p.novos.length)} leads`:""}${p.novos.length&&p.atual.length?" e ":""}${p.atual.length?`${p.novos.length?"atualizar":"Atualizar"} ${NUM.format(p.atual.length)}`:""}${!p.novos.length&&!p.atual.length?"Nada para incluir":""} em ${esc(nomeMes(mes))}</button><button class="btn" data-a="mktcancel">Cancelar</button><span class="small muted" id="mkt-prog"></span></div>`}
+  return h+`</div>`}
+
+/* ---- importar valores ("Gastou quanto?") das planilhas das unidades ---- */
+function mesDaLinha(nomeMesTxt,data){const n=semAc(String(nomeMesTxt||"")).toLowerCase().trim();
+  for(let i=0;i<12;i++)if(n&&n.startsWith(semAc(MES_NOME[i]).toLowerCase().slice(0,4)))return "2026-"+String(i+1).padStart(2,"0");
+  const d=dataMkt(data);return d?d.slice(0,7):""}
+function lerValores(wb){const linhas=[];
+  for(const aba of wb.SheetNames){const rows=XLSX.utils.sheet_to_json(wb.Sheets[aba],{header:1,raw:true,defval:""});
+    const hi=rows.findIndex(r=>r.some(c=>semAc(String(c)).toLowerCase().includes("gastou")));if(hi<0)continue;
+    const H=rows[hi].map(c=>semAc(String(c)).toLowerCase().trim());const ix=f=>H.findIndex(f);
+    const iV=ix(h=>h.includes("gastou")),iM=ix(h=>h==="mes"),iD=ix(h=>h==="data"),iC=ix(h=>h==="contato"),iCo=ix(h=>h.startsWith("cod")),iP=ix(h=>h.includes("pagou"));
+    for(const r of rows.slice(hi+1)){const v=r[iV];if(typeof v!=="number"||!(v>0))continue;
+      linhas.push({aba,valor:Math.round(v*100)/100,mes:mesDaLinha(iM>=0?r[iM]:"",iD>=0?r[iD]:""),tel:tel8(String(r[iC]??"")),cods:new Set([...codsDe(String(iCo>=0?r[iCo]:"").split(/[|·]/)[0])].filter(c=>c.length>=3)),pagou:iP>=0?String(r[iP]||"").trim():""})}}
+  return linhas}
+function cruzarValores(todas){const porMes={},sem=[],abas={};const idx={};
+  // a mesma aba vem repetida em vários arquivos: a mesma linha conta uma vez só; números muito baixos (marcações como 1, 6, 7) não são valores
+  const vistos=new Set(),linhas=[];let baixos=0,repetidas=0;
+  for(const x of todas){if(x.valor<10){baixos++;continue}const k=[semAc(x.aba),x.mes,x.tel,[...x.cods].join("."),x.valor].join("|");if(vistos.has(k)){repetidas++;continue}vistos.add(k);linhas.push(x)}
+  for(const x of linhas){const a=abas[x.aba]=abas[x.aba]||{linhas:0,achou:0,total:0};a.linhas++;
+    if(!x.mes||!MESES.includes(x.mes)){sem.push(x);continue}
+    const ls=idx[x.mes]||(idx[x.mes]=leadsDo(x.mes).filter(l=>!riscoDe(l)));
+    const c=ls.filter(l=>(x.tel&&tel8(l.contato)===x.tel)||[...codsLead(l)].some(cd=>x.cods.has(cd)));
+    if(!c.length){sem.push(x);continue}const l=c.find(l=>R.pres(l))||c[0];
+    const pm=porMes[x.mes]=porMes[x.mes]||{};pm[l.key]=Math.round(((pm[l.key]||0)+x.valor)*100)/100;a.achou++;a.total+=x.valor}
+  let novos=0,mudam=0,total=0;const resumoMes={};
+  for(const [m,mp] of Object.entries(porMes)){const atual=((S.adm[m]||{}).valores)||{};let t=0;for(const [k,v] of Object.entries(mp)){t+=v;if(atual[k]==null||atual[k]==="")novos++;else if(+atual[k]!==v)mudam++}resumoMes[m]=t;total+=t}
+  return {porMes,sem,abas,novos,mudam,total,resumoMes,baixos,repetidas}}
+async function lerArquivoValores(files){if(!S.isAdm)return;try{await carregar(LIB.xlsx);let linhas=[];const nomes=[];
+    for(const f of files){const wb=XLSX.read(await f.arrayBuffer(),{type:"array"});linhas=linhas.concat(lerValores(wb).map(x=>({...x,arq:f.name})));nomes.push(f.name)}
+    if(!linhas.length){toast('Não achei valores na coluna "Gastou quanto?".');return}
+    S.valPrev={arquivos:nomes,...cruzarValores(linhas)};render()}
+  catch(e){toast("Não consegui ler a planilha. Confira se é um arquivo .xlsx.")}}
+async function aplicarValores(){const p=S.valPrev;if(!p||!S.isAdm)return;const b=document.querySelector('[data-a="valok"]');if(b)b.disabled=true;
+  try{for(const [m,mp] of Object.entries(p.porMes))await salvarAdm(m,novo=>{for(const [k,v] of Object.entries(mp))novo.valores[k]=v});
+    toast(`Valores gravados: ${BRL.format(p.total)} em ${Object.keys(p.porMes).length} meses.`);S.valPrev=null;render()}
+  catch(e){tratarErro(e);if(b)b.disabled=false}}
+function vImportValores(){if(!S.isAdm)return "";const p=S.valPrev;
+  let h=`<div class="card"><h2>Importar valores dos pacientes <small>coluna "Gastou quanto?" das planilhas das unidades</small></h2>
+   <p class="small muted" style="margin-top:0">Envie uma ou várias planilhas (pode selecionar todas de uma vez). O sistema lê todas as abas, pega só os valores em número na coluna <b>Gastou quanto?</b> e grava no lead do mês da coluna <b>Mês</b>, achando o paciente pelo telefone ou COD. Textos como "ok", "Não" ou "Nada" e valores 0 são ignorados. Vale para o Gasto × Entrou e para Outros canais.</p>
+   <label class="f" for="val-file">Planilhas (.xlsx)<input id="val-file" type="file" accept=".xlsx,.xls" multiple data-a="valfile"></label>`;
+  if(p){const ab=Object.entries(p.abas).filter(([,a])=>a.linhas);
+    h+=`<div class="banner info" style="margin-top:12px">${esc(p.arquivos.join(", "))} · <b>${BRL.format(p.total)}</b> para gravar · ${NUM.format(p.novos)} valores novos${p.mudam?` · ${NUM.format(p.mudam)} substituem um valor diferente já lançado`:""}${p.sem.length?` · <b>${NUM.format(p.sem.length)}</b> não encontrados no Funil`:""}.${p.repetidas?` ${NUM.format(p.repetidas)} linhas repetidas entre os arquivos contaram uma vez só.`:""}${p.baixos?` ${NUM.format(p.baixos)} números abaixo de R$ 10 foram ignorados (parecem marcações, não valores).`:""}</div>
+     <div class="tablewrap" style="margin-top:10px">${tabela(["Aba (unidade)","Valores na planilha","Achados no Funil","Total"],ab.map(([n,a])=>[esc(n),NUM.format(a.linhas),NUM.format(a.achou),BRL.format(a.total)]))}</div>
+     <div class="small" style="margin-top:8px">Por mês: ${Object.keys(p.resumoMes).sort().map(m=>`${esc(nomeMes(m).split(" ")[0])} <b>${BRL0.format(p.resumoMes[m])}</b>`).join(" · ")}</div>
+     ${p.sem.length?`<div class="small muted" style="margin-top:6px">Não encontrados: ${esc(p.sem.slice(0,8).map(x=>(x.mes?nomeMes(x.mes).split(" ")[0]+" ":"")+(x.tel?"tel. …"+x.tel.slice(-4):"COD "+[...x.cods][0])+" ("+BRL0.format(x.valor)+")").join(" · "))}${p.sem.length>8?" …":""}</div>`:""}
+     <div class="row" style="gap:8px;margin-top:12px"><button class="btn pri" data-a="valok"${p.total?"":" disabled"}>Gravar ${BRL.format(p.total)}</button><button class="btn" data-a="valcancel">Cancelar</button></div>`}
   return h+`</div>`}
 function vRespImport(){if(!S.isAdm)return "";const p=S.respPrev;const mesSel=S.respMes||S.mes;
   const ops=MESES.filter(k=>k<=mesAtual).map(k=>`<option value="${k}"${k===mesSel?" selected":""}>${esc(nomeMes(k))}</option>`).join("");
@@ -1263,6 +1310,8 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
   else if(a==="respaplicar"){aplicarResp()}
   else if(a==="mktok"){incluirMkt()}
+  else if(a==="valok"){aplicarValores()}
+  else if(a==="valcancel"){S.valPrev=null;render()}
   else if(a==="mktcancel"){S.mktPrev=null;render()}
   else if(a==="zerar"){zerarMes(t.dataset.m)}
   else if(a==="limpadup"){limparDupImport(t.dataset.m)}
@@ -1289,6 +1338,7 @@ document.addEventListener("change",async e=>{const t=e.target;const a=t.dataset&
   if(a==="mfde"||a==="mfate"){S.mf={...(S.mf||{}),p:"custom",[a==="mfde"?"de":"ate"]:t.value};render();return}
   if(a==="zerartxt"){S.zerarTxt=t.value;const b=document.querySelector('[data-a="zerar"]');if(b)b.disabled=t.value.trim().toUpperCase()!=="ZERAR";return}
   if(a==="agpq"){trocarResp(t.dataset.k,t.value);return}
+  if(a==="valfile"){const fs=[...(t.files||[])];t.value="";if(fs.length)lerArquivoValores(fs);return}
   if(a==="mktfile"){const f=t.files&&t.files[0];t.value="";if(f)lerArquivoMkt(f);return}
   if(a==="mktrisc"){S.mktRiscar=!!t.checked;return}
   if(a==="mktatual"){S.mktAtualizar=!!t.checked;return}
