@@ -411,9 +411,36 @@ function vConfMes(ls,mes,ativoF,botao){const cm=met(ls,mes);
    const pi=porIntegrante(ls);const nomes=Object.keys(pi.g).filter(n=>EQUIPE.includes(n)||pi.g[n].ag);
    h+=`<div class="conf conf2"><span class="conf-t">Por integrante</span>${nomes.map(n=>`<span><b>${esc(n)}</b> agendou ${NUM.format(pi.g[n].ag)} · ${NUM.format(pi.g[n].pres)} presença${pi.g[n].pres===1?"":"s"}</span>`).join("")}<span><b>${MKT} (MKT)</b> ${NUM.format(pi.midia)} presenças das mídias</span></div>`;
    return h}
+
+/* ---- topo dos Lançamentos: agendados de hoje + atualizar presenças ---- */
+function vHojeLanc(){if(S.db&&isLive(mesAtual)&&typeof assinarMes==="function")assinarMes(mesAtual);
+  const ls=[];for(const m of MESES){if(m>mesAtual)continue;for(const l of leadsDo(m))if(!riscoDe(l)&&l.agendamento===hoje&&(noGrupoAg(l)||R.agend(l)))ls.push(l)}
+  ls.sort((a,b)=>(a.cidade||"").localeCompare(b.cidade||"")||(a.contato||"").localeCompare(b.contato||""));
+  const pres=ls.filter(R.pres).length,falt=ls.filter(R.falt).length,canc=ls.filter(R.canc).length,sem=ls.length-pres-falt-canc;
+  const r=S.robo||{},est=r.estado||"",ocup=(est==="solicitado"||est==="rodando")&&!(r.em&&Date.now()-new Date(r.em).getTime()>30*60*1000);
+  const ed=podeEscrever();
+  let h=`<div class="card" style="border-top:3px solid var(--accent)"><div class="row" style="justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+    <div><h2 style="margin:0">Agendados de hoje <small>${esc(fmtData(hoje))}</small></h2>
+    <div class="row" style="gap:8px;margin-top:10px;flex-wrap:wrap">
+      <span class="pp" style="background:var(--grey-soft)">${NUM.format(ls.length)} agendados</span>
+      <span class="pp" style="${pstyle("status","Presença")}">${NUM.format(pres)} presença${pres===1?"":"s"}</span>
+      <span class="pp" style="${pstyle("status","Faltoso")}">${NUM.format(falt)} falta${falt===1?"":"s"}</span>
+      ${canc?`<span class="pp" style="${pstyle("status","Cancelado")}">${NUM.format(canc)} cancelado${canc===1?"":"s"}</span>`:""}
+      <span class="pp pp0">${NUM.format(sem)} sem status</span></div></div>
+    <div style="text-align:right">${S.isAdm?`<button class="btn pri" data-a="roboagora"${ocup?" disabled":""}>${ocup?"Atualizando presenças…":"↻ Atualizar presenças"}</button>
+      <div class="small muted" style="margin-top:6px;max-width:320px">${ocup?(est==="rodando"?"O robô está conferindo o sistema da clínica.":"Pedido enviado. Começa em até 1 minuto."):r.fim?`Última atualização: ${esc(fmtHora(r.fim))}${r.resumo?(()=>{const P=Object.values(r.resumo).reduce((a,x)=>a+(x.presencas||0),0),F=Object.values(r.resumo).reduce((a,x)=>a+(x.faltas||0),0);return ` · ${NUM.format(P)} presença${P===1?"":"s"}${F?` e ${NUM.format(F)} falta${F===1?"":"s"}`:""} ${P+F===1?"gravada":"gravadas"}${r.simular?" (simulação)":""}`})():""}`:"O robô confere o sistema da clínica e marca Presença ou Faltoso."}</div>`
+      :`<div class="small muted" style="max-width:280px">As presenças são atualizadas pela gerência no botão "Atualizar presenças".</div>`}</div></div>`;
+  if(ls.length)h+=`<div class="tablewrap" style="margin-top:12px"><table class="lista"><thead><tr><th>Contato</th><th>Cidade</th><th>Interesse</th><th>Canal</th><th>Responsável</th><th>Status</th><th>COD / Observação</th></tr></thead><tbody>${ls.map(l=>{const e=l.live&&ed;
+      return `<tr class="click" tabindex="0" data-a="abrir" data-k="${esc(l.key)}"><td>${esc(l.contato)}</td><td>${pp("cidade",l.cidade,l.key,false)}</td><td>${pp("interesse",l.interesse,l.key,false)}</td><td>${pp("canal",l.canal,l.key,false)}</td>
+      <td>${agendadorNome(l)?pp("agPor",agendadorNome(l),l.key,false):'<span class="muted small">–</span>'}</td><td>${pp("status",l.status,l.key,e,"sem status")}</td><td class="small obs"><div class="obsc">${esc([l.cod,l.obs].filter(Boolean).join(" · "))}</div></td></tr>`}).join("")}</tbody></table></div>`;
+  else h+=`<div class="empty" style="margin-top:10px">Nenhuma consulta agendada para hoje.</div>`;
+  return h+`</div>`}
+async function roboAgora(){if(!S.isAdm)return;const antes=S.robo_simular;S.robo_simular=false;try{await rodarRobo()}finally{S.robo_simular=antes}}
 function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(l)),dups=dupsDe(ls),f=S.f,live=isLive(mes),w=podeEscrever()&&live;
   const nRisc=todos.length-ls.length;
-  let h=`<div class="card"><div class="row" style="justify-content:space-between">
+  let h=vHojeLanc();
+  if(w)h+=novoLeadForm();
+  h+=`<div class="card"><div class="row" style="justify-content:space-between">
     <div class="row"><label class="f" for="mes">Mês<select id="mes" data-a="mes">${mesOpts(mes)}</select></label>
     <div><div class="small muted">${NUM.format(ls.length)} leads neste mês${nRisc?` · ${NUM.format(nRisc)} transferidos para meses seguintes`:""}</div></div></div>
     ${live?"":`<span class="banner info">Mês arquivado: dados importados da planilha, somente leitura.</span>`}
@@ -421,7 +448,6 @@ function vLanc(){const mes=S.mes,todos=leadsDo(mes),ls=todos.filter(l=>!riscoDe(
   if(live&&S.isOwner&&mes==="2026-11"&&S.migr===false)h+=`<div class="banner warn"><b>${ls.length?"A importação de novembro não terminou.":"Novembro ainda está vazio."}</b> Importe os 304 leads de novembro da planilha antes de a equipe começar. <button class="btn pri" data-a="importar" id="btn-imp">Importar novembro</button><span id="imp-prog"></span></div>`;
   if(live&&!S.db)h+=`<div class="banner bad">Entre na sua conta para lançar e editar leads.</div>`;
   else if(live&&!podeEscrever())h+=`<div class="banner warn">Seu acesso é só de leitura. Peça à administradora para te convidar como Editor.</div>`;
-  if(w)h+=novoLeadForm();
   // filtros
   const fonteLista=f.risc?todos.filter(riscoDe):ls;
   const base=fonteLista.filter(l=>(!f.cidade||l.cidade===f.cidade)&&(!f.canal||l.canal===f.canal)&&(!f.interesse||l.interesse===f.interesse)&&
@@ -1305,6 +1331,7 @@ document.addEventListener("click",e=>{const t=e.target.closest("[data-a]");
   else if(a==="admmodo"){S.adm_mode=t.dataset.v;render()}
   else if(a==="finmodo"){S.fin_mode=t.dataset.v;render()}
   else if(a==="roborun"){rodarRobo()}
+  else if(a==="roboagora"){roboAgora()}
   else if(a==="dupf"){S.f.dup=!S.f.dup;S.f.lim=150;render()}
   else if(a==="mflimpar"){S.mf={};render()}
   else if(a==="admtab"){S.admTab=t.dataset.v;render();window.scrollTo(0,0)}
@@ -1378,9 +1405,9 @@ function vRobo(){const r=S.robo||{},est=r.estado||"",simul=S.robo_simular!==fals
   let tab="";
   if(r.resumo&&(est==="concluido"||est==="erro")){
     const linhas=Object.keys(ROBO_UN).filter(k=>r.resumo[k]).map(k=>{const x=r.resumo[k];
-      return `<tr><td>${esc(ROBO_UN[k])}</td>${x.falha?`<td colspan="4" class="small" style="color:var(--bad,#b42318)">Não conferida: ${esc(x.falha)}</td>`:`<td class="n">${x.lidas!=null?NUM.format(x.lidas):"–"}</td><td class="n">${NUM.format(x.pendentes||0)}</td><td class="n"><b>${NUM.format(x.presencas||0)}</b></td><td class="n">${NUM.format(x.pulados||0)}</td>`}</tr>`}).join("");
+      return `<tr><td>${esc(ROBO_UN[k])}</td>${x.falha?`<td colspan="5" class="small" style="color:var(--bad,#b42318)">Não conferida: ${esc(x.falha)}</td>`:`<td class="n">${x.lidas!=null?NUM.format(x.lidas):"–"}</td><td class="n">${NUM.format(x.pendentes||0)}</td><td class="n"><b>${NUM.format(x.presencas||0)}</b></td><td class="n">${x.faltas!=null?NUM.format(x.faltas):"–"}</td><td class="n">${NUM.format(x.pulados||0)}</td>`}</tr>`}).join("");
     tab=`<div class="small muted" style="margin:10px 0 6px">Última conferência: <b>${esc(fmtHora(r.fim))}</b>${r.simular?" · <b>simulação</b> (nada foi gravado)":""}${r.por?" · pedida por "+esc(nome(r.por)):""}</div>
-     <div class="tablewrap"><table><thead><tr><th>Unidade</th><th class="n">Avaliações concluídas no sistema</th><th class="n">Agendados sem status</th><th class="n">${r.simular?"Teriam presença":"Presenças gravadas"}</th><th class="n">Pulados</th></tr></thead><tbody>${linhas}</tbody></table></div>`}
+     <div class="tablewrap"><table><thead><tr><th>Unidade</th><th class="n">Avaliações concluídas no sistema</th><th class="n">Agendados sem status</th><th class="n">${r.simular?"Teriam presença":"Presenças gravadas"}</th><th class="n">${r.simular?"Teriam falta":"Faltas gravadas"}</th><th class="n">Pulados</th></tr></thead><tbody>${linhas}</tbody></table></div>`}
   return `<div class="card"><div class="row" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap">
     <div><h2 style="margin:0">Conferir presenças no sistema da clínica</h2>
     <div class="small muted">O robô procura as avaliações concluídas nas 7 unidades e marca Presença nos agendados sem status.</div></div>
